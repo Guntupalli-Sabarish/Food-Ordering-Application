@@ -5,6 +5,7 @@ import com.foodorderapplication.backend.model.MenuItem;
 import com.foodorderapplication.backend.model.Restaurant;
 import com.foodorderapplication.backend.repository.MenuItemRepository;
 import com.foodorderapplication.backend.repository.RestaurantRepository;
+import com.foodorderapplication.backend.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,15 +19,18 @@ import org.springframework.web.server.ResponseStatusException;
 public class MenuService {
 	private final MenuItemRepository menuItemRepository;
 	private final RestaurantRepository restaurantRepository;
+	private final UserRepository userRepository;
 
-	public MenuService(MenuItemRepository menuItemRepository, RestaurantRepository restaurantRepository) {
+	public MenuService(MenuItemRepository menuItemRepository, RestaurantRepository restaurantRepository,
+			UserRepository userRepository) {
 		this.menuItemRepository = menuItemRepository;
 		this.restaurantRepository = restaurantRepository;
+		this.userRepository = userRepository;
 	}
 
-	public MenuItemDTO createMenuItem(Long adminId, MenuItemDTO request) {
-		validateId(adminId, "adminId");
+	public MenuItemDTO createMenuItem(String adminEmail, MenuItemDTO request) {
 		validateMenuRequest(request);
+		Long adminId = resolveAdminId(adminEmail);
 		Restaurant restaurant = getRestaurantForAdmin(adminId, request.getRestaurantId());
 		MenuItem menuItem = new MenuItem();
 		menuItem.setRestaurant(restaurant);
@@ -39,9 +43,9 @@ public class MenuService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<MenuItemDTO> listMenuItemsForAdmin(Long adminId, Long restaurantId, String itemName,
+	public List<MenuItemDTO> listMenuItemsForAdmin(String adminEmail, Long restaurantId, String itemName,
 			Boolean available, BigDecimal minPrice, BigDecimal maxPrice) {
-		validateId(adminId, "adminId");
+		Long adminId = resolveAdminId(adminEmail);
 		Long resolvedRestaurantId = restaurantId;
 		if (resolvedRestaurantId == null) {
 			resolvedRestaurantId = restaurantRepository.findByAdminId(adminId)
@@ -56,8 +60,8 @@ public class MenuService {
 		return menuItems.stream().map(this::toDto).collect(Collectors.toList());
 	}
 
-	public MenuItemDTO updateMenuItem(Long adminId, Long menuItemId, MenuItemDTO request) {
-		validateId(adminId, "adminId");
+	public MenuItemDTO updateMenuItem(String adminEmail, Long menuItemId, MenuItemDTO request) {
+		Long adminId = resolveAdminId(adminEmail);
 		validateId(menuItemId, "menuItemId");
 		validateMenuRequest(request);
 		MenuItem menuItem = menuItemRepository.findById(menuItemId)
@@ -73,8 +77,8 @@ public class MenuService {
 		return toDto(menuItemRepository.save(menuItem));
 	}
 
-	public void deleteMenuItem(Long adminId, Long menuItemId) {
-		validateId(adminId, "adminId");
+	public void deleteMenuItem(String adminEmail, Long menuItemId) {
+		Long adminId = resolveAdminId(adminEmail);
 		validateId(menuItemId, "menuItemId");
 		MenuItem menuItem = menuItemRepository.findById(menuItemId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
@@ -134,6 +138,15 @@ public class MenuService {
 		if (id == null || id <= 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " is invalid");
 		}
+	}
+
+	private Long resolveAdminId(String adminEmail) {
+		if (isBlank(adminEmail)) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+		}
+		return userRepository.findByEmail(adminEmail.trim().toLowerCase())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"))
+				.getUserId();
 	}
 
 	private String cleanFilter(String value) {

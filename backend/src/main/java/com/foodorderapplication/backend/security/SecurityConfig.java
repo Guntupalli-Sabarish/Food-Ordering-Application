@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
@@ -19,44 +20,49 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter)
-            throws Exception {
-        http.csrf(csrf -> csrf.disable())
-                .sessionManagement(
-                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(
-                        auth ->
-                                auth.requestMatchers(
-                                                "/api/auth/register",
-                                                "/api/auth/login",
-                                                "/api/auth/forgot-password",
-                                                "/api/auth/reset-password")
-                                        .permitAll()
-                                        .anyRequest()
-                                        .authenticated())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter)
+                        throws Exception {
+                http.csrf(csrf -> csrf.disable())
+                                .sessionManagement(
+                                                session -> session
+                                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(
+                                                auth -> auth.requestMatchers(
+                                                                "/api/auth/register",
+                                                                "/api/auth/login",
+                                                                "/api/auth/forgot-password",
+                                                                "/api/auth/reset-password",
+                                                                "/api/health",
+                                                                "/api/config",
+                                                                "/swagger-ui/**",
+                                                                "/v3/api-docs/**",
+                                                                "/swagger-resources/**",
+                                                                "/webjars/**")
+                                                                .permitAll()
+                                                                .anyRequest()
+                                                                .authenticated())
+                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    @Bean
-    public UserDetailsService userDetailsService(UserRepository userRepository) {
-        return username -> {
-            User user =
-                    userRepository
-                            .findByEmail(username)
-                            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-            GrantedAuthority authority =
-                    new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
-            return new org.springframework.security.core.userdetails.User(
-                    user.getEmail(), user.getPassword(), List.of(authority));
-        };
-    }
+        @Bean
+        public UserDetailsService userDetailsService(UserRepository userRepository) {
+                return username -> {
+                        User user = userRepository
+                                        .findByEmail(username)
+                                        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                        GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
+                        return new org.springframework.security.core.userdetails.User(
+                                        user.getEmail(), user.getPassword(), List.of(authority));
+                };
+        }
 }

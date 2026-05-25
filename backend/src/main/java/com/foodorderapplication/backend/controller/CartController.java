@@ -4,6 +4,7 @@ import com.foodorderapplication.backend.model.Cart;
 import com.foodorderapplication.backend.service.CartService;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,12 +24,14 @@ public class CartController {
     }
 
     @GetMapping("/api/customer/cart")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Cart> getCart(Authentication authentication) {
         Cart cart = cartService.getCart(authentication.getName());
         return ResponseEntity.ok(cart);
     }
 
     @PostMapping("/api/customer/cart/add")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Cart> addItem(Authentication authentication, @RequestBody Map<String, Object> body) {
         Long menuItemId = ((Number) body.get("menuItemId")).longValue();
         int quantity = ((Number) body.getOrDefault("quantity", 1)).intValue();
@@ -37,6 +40,7 @@ public class CartController {
     }
 
     @PutMapping("/api/customer/cart/update/{itemId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Cart> updateItem(Authentication authentication, @PathVariable Long itemId,
             @RequestBody Map<String, Object> body) {
         int quantity = ((Number) body.getOrDefault("quantity", 0)).intValue();
@@ -45,12 +49,14 @@ public class CartController {
     }
 
     @DeleteMapping("/api/customer/cart/remove/{itemId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Cart> removeItem(Authentication authentication, @PathVariable Long itemId) {
         Cart cart = cartService.removeItem(authentication.getName(), itemId);
         return ResponseEntity.ok(cart);
     }
 
     @DeleteMapping("/api/customer/cart/clear")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Map<String, String>> clearCart(Authentication authentication) {
         cartService.clearCart(authentication.getName());
         return ResponseEntity.ok(Map.of("message", "Cart cleared"));

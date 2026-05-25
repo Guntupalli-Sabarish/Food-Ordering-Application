@@ -1,11 +1,12 @@
 package com.foodorderapplication.backend.controller;
 
 import com.foodorderapplication.backend.model.Order;
-import com.foodorderapplication.backend.model.OrderStatus;
+import com.foodorderapplication.backend.model.enums.OrderStatus;
 import com.foodorderapplication.backend.service.OrderService;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,27 +24,32 @@ public class OrderController {
     }
 
     @PostMapping("/api/customer/orders")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Order> createOrder(Authentication authentication) {
         Order order = orderService.createOrder(authentication.getName());
         return ResponseEntity.ok(order);
     }
 
     @GetMapping("/api/customer/orders")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<List<Order>> listOrders(Authentication authentication) {
         return ResponseEntity.ok(orderService.listOrdersForUser(authentication.getName()));
     }
 
     @GetMapping("/api/customer/orders/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Order> getOrder(Authentication authentication, @PathVariable Long id) {
         return ResponseEntity.ok(orderService.getOrder(authentication.getName(), id));
     }
 
     @PutMapping("/api/customer/orders/{id}/cancel")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Order> cancelOrder(Authentication authentication, @PathVariable Long id) {
         return ResponseEntity.ok(orderService.cancelOrder(authentication.getName(), id));
     }
 
     @GetMapping("/api/customer/orders/{id}/track")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Map<String, Object>> trackOrder(Authentication authentication, @PathVariable Long id) {
         Order o = orderService.trackOrder(authentication.getName(), id);
         return ResponseEntity.ok(Map.of("orderId", o.getOrderId(), "status", o.getOrderStatus()));
@@ -51,13 +57,16 @@ public class OrderController {
 
     // Admin endpoints
     @GetMapping("/api/admin/orders")
-    public ResponseEntity<List<Order>> listAllOrders() {
-        return ResponseEntity.ok(orderService.listAllOrders());
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Order>> listAllOrders(Authentication authentication) {
+        return ResponseEntity.ok(orderService.listOrdersForAdmin(authentication.getName()));
     }
 
     @PutMapping("/api/admin/orders/{id}/status")
-    public ResponseEntity<Order> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Order> updateStatus(Authentication authentication, @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
         OrderStatus status = OrderStatus.valueOf(body.get("status"));
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, status));
+        return ResponseEntity.ok(orderService.updateOrderStatusForAdmin(authentication.getName(), id, status));
     }
 }

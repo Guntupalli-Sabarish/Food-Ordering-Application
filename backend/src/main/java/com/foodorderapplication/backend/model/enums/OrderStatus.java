@@ -2,9 +2,8 @@ package com.foodorderapplication.backend.model.enums;
 
 public enum OrderStatus {
     PENDING,
-    CONFIRMED,
+    ACCEPTED,
     PREPARING,
-    READY,
     DELIVERED,
     CANCELLED
 }

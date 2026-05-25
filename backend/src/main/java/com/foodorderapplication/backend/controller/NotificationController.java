@@ -1,5 +1,6 @@
 package com.foodorderapplication.backend.controller;
 
+import com.foodorderapplication.backend.model.enums.UserRole;
 import com.foodorderapplication.backend.service.NotificationService;
 import com.foodorderapplication.backend.util.ApiResponse;
 import com.foodorderapplication.backend.util.EmailRequest;
@@ -7,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,8 +28,9 @@ public class NotificationController {
     }
 
     @PostMapping("/send-email")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse> sendEmail(@RequestBody EmailRequest request, HttpServletRequest httpRequest) {
-        logger.info("Send email request received");
+        logger.info("Send email request received by user with role {} or {}", UserRole.ADMIN, UserRole.SUPER_ADMIN);
         ApiResponse response = ApiResponse.ok(
                 "Email sent",
                 notificationService.sendEmail(request),

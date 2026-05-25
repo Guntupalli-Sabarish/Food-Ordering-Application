@@ -1,4 +1,4 @@
-package com.foodorderapplication.backend.model;
+package com.foodorderapplication.backend.model.enums;
 
 public enum PaymentMethod {
     CARD,

@@ -4,17 +4,19 @@ import com.foodorderapplication.backend.model.Cart;
 import com.foodorderapplication.backend.model.CartItem;
 import com.foodorderapplication.backend.model.MenuItem;
 import com.foodorderapplication.backend.model.Order;
-import com.foodorderapplication.backend.model.OrderStatus;
+import com.foodorderapplication.backend.model.OrderItem;
+import com.foodorderapplication.backend.model.enums.OrderStatus;
+import com.foodorderapplication.backend.repository.CartItemRepository;
+import com.foodorderapplication.backend.repository.CartRepository;
 import com.foodorderapplication.backend.repository.MenuItemRepository;
+import com.foodorderapplication.backend.repository.OrderItemRepository;
+import com.foodorderapplication.backend.repository.OrderRepository;
+import com.foodorderapplication.backend.repository.RestaurantRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,16 +24,24 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class OrderService {
-    private final ConcurrentMap<Long, Order> orders = new ConcurrentHashMap<>();
-    private final AtomicLong orderIdSeq = new AtomicLong(1);
-    private final CartService cartService;
     private final UserRepository userRepository;
     private final MenuItemRepository menuItemRepository;
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final RestaurantRepository restaurantRepository;
 
-    public OrderService(CartService cartService, UserRepository userRepository, MenuItemRepository menuItemRepository) {
-        this.cartService = cartService;
+        public OrderService(UserRepository userRepository, MenuItemRepository menuItemRepository,
+            CartRepository cartRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository, RestaurantRepository restaurantRepository) {
         this.userRepository = userRepository;
         this.menuItemRepository = menuItemRepository;
+        this.cartRepository = cartRepository;
+        this.cartItemRepository = cartItemRepository;
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.restaurantRepository = restaurantRepository;
     }
 
     private Long resolveUserId(String email) {
@@ -43,16 +53,18 @@ public class OrderService {
     @Transactional
     public Order createOrder(String userEmail) {
         Long userId = resolveUserId(userEmail);
-        Cart cart = cartService.getCart(userEmail);
-        if (cart.getItems().isEmpty()) {
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty"));
+        List<CartItem> cartItems = cartItemRepository.findByCart(cart);
+        if (cartItems.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
         }
 
         // Ensure all items from same restaurant
         Long restaurantId = null;
         BigDecimal total = BigDecimal.ZERO;
-        List<CartItem> itemsCopy = new ArrayList<>();
-        for (CartItem ci : cart.getItems()) {
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (CartItem ci : cartItems) {
             MenuItem mi = menuItemRepository.findById(ci.getMenuItemId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
             Long rId = mi.getRestaurant().getRestaurantId();
@@ -63,37 +75,41 @@ public class OrderService {
             }
             BigDecimal line = mi.getPrice().multiply(BigDecimal.valueOf(ci.getQuantity()));
             total = total.add(line);
-            itemsCopy.add(new CartItem(ci.getMenuItemId(), ci.getQuantity()));
+
+            OrderItem orderItem = new OrderItem();
+            orderItem.setMenuItemId(ci.getMenuItemId());
+            orderItem.setQuantity(ci.getQuantity());
+            orderItem.setUnitPrice(mi.getPrice());
+            orderItem.setLineTotal(line);
+            orderItems.add(orderItem);
         }
 
         Order order = new Order();
-        order.setOrderId(orderIdSeq.getAndIncrement());
         order.setUserId(userId);
         order.setRestaurantId(restaurantId);
         order.setTotalAmount(total);
         order.setOrderStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
-        order.setItems(itemsCopy);
+        Order savedOrder = orderRepository.save(order);
 
-        orders.put(order.getOrderId(), order);
-        cartService.clearCart(userEmail);
-        return order;
+        for (OrderItem orderItem : orderItems) {
+            orderItem.setOrder(savedOrder);
+        }
+        orderItemRepository.saveAll(orderItems);
+        savedOrder.setItems(orderItems);
+
+        cartItemRepository.deleteByCart(cart);
+        return savedOrder;
     }
 
     public List<Order> listOrdersForUser(String userEmail) {
         Long userId = resolveUserId(userEmail);
-        List<Order> result = new ArrayList<>();
-        for (Order o : orders.values()) {
-            if (o.getUserId().equals(userId)) {
-                result.add(o);
-            }
-        }
-        return result;
+        return orderRepository.findByUserId(userId);
     }
 
     public Order getOrder(String userEmail, Long orderId) {
         Long userId = resolveUserId(userEmail);
-        Order order = orders.get(orderId);
+        Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null || !order.getUserId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
         }
@@ -103,7 +119,7 @@ public class OrderService {
     @Transactional
     public Order cancelOrder(String userEmail, Long orderId) {
         Long userId = resolveUserId(userEmail);
-        Order order = orders.get(orderId);
+        Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null || !order.getUserId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
         }
@@ -111,7 +127,7 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending orders can be cancelled");
         }
         order.setOrderStatus(OrderStatus.CANCELLED);
-        return order;
+        return orderRepository.save(order);
     }
 
     public Order trackOrder(String userEmail, Long orderId) {
@@ -120,25 +136,41 @@ public class OrderService {
 
     // Admin operations
     public List<Order> listAllOrders() {
-        return new ArrayList<>(orders.values());
+        return orderRepository.findAll();
+    }
+
+    public List<Order> listOrdersForAdmin(String adminEmail) {
+        Long adminId = resolveUserId(adminEmail);
+        Long restaurantId = restaurantRepository.findByAdminId(adminId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"))
+                .getRestaurantId();
+        return orderRepository.findByRestaurantId(restaurantId);
     }
 
     @Transactional
     public Order updateOrderStatus(Long orderId, OrderStatus status) {
-        Order order = orders.get(orderId);
-        if (order == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
-        }
-        // Basic allowed flow check (allow setting any for admin but keep flow sane)
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         order.setOrderStatus(status);
-        return order;
+        return orderRepository.save(order);
+    }
+
+    public Order updateOrderStatusForAdmin(String adminEmail, Long orderId, OrderStatus status) {
+        Long adminId = resolveUserId(adminEmail);
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        Long restaurantId = restaurantRepository.findByAdminId(adminId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"))
+                .getRestaurantId();
+        if (!order.getRestaurantId().equals(restaurantId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed for this restaurant");
+        }
+        order.setOrderStatus(status);
+        return orderRepository.save(order);
     }
 
     public Order getOrderById(Long orderId) {
-        Order order = orders.get(orderId);
-        if (order == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
-        }
-        return order;
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
     }
 }

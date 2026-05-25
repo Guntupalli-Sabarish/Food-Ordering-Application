@@ -3,6 +3,7 @@ package com.foodorderapplication.backend.service;
 import com.foodorderapplication.backend.dto.RestaurantDTO;
 import com.foodorderapplication.backend.model.Restaurant;
 import com.foodorderapplication.backend.repository.RestaurantRepository;
+import com.foodorderapplication.backend.repository.UserRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -14,9 +15,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional
 public class RestaurantService {
 	private final RestaurantRepository restaurantRepository;
+	private final UserRepository userRepository;
 
-	public RestaurantService(RestaurantRepository restaurantRepository) {
+	public RestaurantService(RestaurantRepository restaurantRepository, UserRepository userRepository) {
 		this.restaurantRepository = restaurantRepository;
+		this.userRepository = userRepository;
 	}
 
 	public RestaurantDTO createRestaurant(RestaurantDTO request) {
@@ -66,15 +69,15 @@ public class RestaurantService {
 	}
 
 	@Transactional(readOnly = true)
-	public RestaurantDTO getRestaurantForAdmin(Long adminId) {
-		validateId(adminId, "adminId");
+	public RestaurantDTO getRestaurantForAdmin(String adminEmail) {
+		Long adminId = resolveAdminId(adminEmail);
 		Restaurant restaurant = restaurantRepository.findByAdminId(adminId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"));
 		return toDto(restaurant);
 	}
 
-	public RestaurantDTO updateRestaurantForAdmin(Long adminId, RestaurantDTO request) {
-		validateId(adminId, "adminId");
+	public RestaurantDTO updateRestaurantForAdmin(String adminEmail, RestaurantDTO request) {
+		Long adminId = resolveAdminId(adminEmail);
 		validateRestaurantRequest(request, false);
 		Restaurant restaurant = restaurantRepository.findByAdminId(adminId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"));
@@ -128,6 +131,15 @@ public class RestaurantService {
 		if (id == null || id <= 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " is invalid");
 		}
+	}
+
+	private Long resolveAdminId(String adminEmail) {
+		if (isBlank(adminEmail)) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+		}
+		return userRepository.findByEmail(adminEmail.trim().toLowerCase())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"))
+				.getUserId();
 	}
 
 	private String cleanFilter(String value) {

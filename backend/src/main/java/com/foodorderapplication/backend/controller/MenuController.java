@@ -5,6 +5,8 @@ import com.foodorderapplication.backend.service.MenuService;
 import java.math.BigDecimal;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,36 +25,40 @@ public class MenuController {
 	}
 
 	@PostMapping("/api/admin/menu")
-	public ResponseEntity<MenuItemDTO> createMenuItem(@RequestParam Long adminId,
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<MenuItemDTO> createMenuItem(Authentication authentication,
 			@RequestBody MenuItemDTO request) {
-		return ResponseEntity.ok(menuService.createMenuItem(adminId, request));
+		return ResponseEntity.ok(menuService.createMenuItem(authentication.getName(), request));
 	}
 
 	@GetMapping("/api/admin/menu")
-	public ResponseEntity<List<MenuItemDTO>> listMenuItemsForAdmin(@RequestParam Long adminId,
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<List<MenuItemDTO>> listMenuItemsForAdmin(Authentication authentication,
 			@RequestParam(required = false) Long restaurantId,
 			@RequestParam(required = false) String itemName,
 			@RequestParam(required = false) Boolean available,
 			@RequestParam(required = false) BigDecimal minPrice,
 			@RequestParam(required = false) BigDecimal maxPrice) {
-		return ResponseEntity.ok(menuService.listMenuItemsForAdmin(adminId, restaurantId, itemName, available,
-				minPrice, maxPrice));
+		return ResponseEntity.ok(menuService.listMenuItemsForAdmin(authentication.getName(), restaurantId, itemName,
+				available, minPrice, maxPrice));
 	}
 
 	@PutMapping("/api/admin/menu/{id}")
-	public ResponseEntity<MenuItemDTO> updateMenuItem(@RequestParam Long adminId,
-			@PathVariable Long id,
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<MenuItemDTO> updateMenuItem(Authentication authentication, @PathVariable Long id,
 			@RequestBody MenuItemDTO request) {
-		return ResponseEntity.ok(menuService.updateMenuItem(adminId, id, request));
+		return ResponseEntity.ok(menuService.updateMenuItem(authentication.getName(), id, request));
 	}
 
 	@DeleteMapping("/api/admin/menu/{id}")
-	public ResponseEntity<Void> deleteMenuItem(@RequestParam Long adminId, @PathVariable Long id) {
-		menuService.deleteMenuItem(adminId, id);
+	@PreAuthorize("hasRole('ADMIN')")
+	public ResponseEntity<Void> deleteMenuItem(Authentication authentication, @PathVariable Long id) {
+		menuService.deleteMenuItem(authentication.getName(), id);
 		return ResponseEntity.noContent().build();
 	}
 
 	@GetMapping("/api/customer/menu/{restaurantId}")
+	@PreAuthorize("hasRole('CUSTOMER')")
 	public ResponseEntity<List<MenuItemDTO>> listMenuItemsForCustomer(@PathVariable Long restaurantId,
 			@RequestParam(required = false) String itemName,
 			@RequestParam(required = false) Boolean available,

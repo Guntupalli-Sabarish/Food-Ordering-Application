@@ -4,6 +4,7 @@ import com.foodorderapplication.backend.dto.auth.AuthResponse;
 import com.foodorderapplication.backend.dto.auth.LoginRequest;
 import com.foodorderapplication.backend.dto.auth.RegisterRequest;
 import com.foodorderapplication.backend.model.User;
+import com.foodorderapplication.backend.model.enums.UserRole;
 import com.foodorderapplication.backend.repository.UserRepository;
 import com.foodorderapplication.backend.security.JwtUtil;
 import java.security.SecureRandom;
@@ -176,12 +177,12 @@ public class AuthService {
                 user.getRole().name());
     }
 
-    private User.Role parseRole(String role) {
+    private UserRole parseRole(String role) {
         if (isBlank(role)) {
-            return User.Role.CUSTOMER;
+            return UserRole.CUSTOMER;
         }
         try {
-            return User.Role.valueOf(role.trim().toUpperCase());
+            return UserRole.valueOf(role.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid role");
         }

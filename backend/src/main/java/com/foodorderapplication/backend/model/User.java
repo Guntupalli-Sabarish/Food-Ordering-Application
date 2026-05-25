@@ -1,5 +1,6 @@
 package com.foodorderapplication.backend.model;
 
+import com.foodorderapplication.backend.model.enums.UserRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -30,7 +31,7 @@ public class User {
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private Role role;
+	private UserRole role;
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
@@ -41,7 +42,7 @@ public class User {
 			createdAt = LocalDateTime.now();
 		}
 		if (role == null) {
-			role = Role.CUSTOMER;
+			role = UserRole.CUSTOMER;
 		}
 	}
 
@@ -77,11 +78,11 @@ public class User {
 		this.password = password;
 	}
 
-	public Role getRole() {
+	public UserRole getRole() {
 		return role;
 	}
 
-	public void setRole(Role role) {
+	public void setRole(UserRole role) {
 		this.role = role;
 	}
 
@@ -93,9 +94,4 @@ public class User {
 		this.createdAt = createdAt;
 	}
 
-	public enum Role {
-		CUSTOMER,
-		ADMIN,
-		SUPER_ADMIN
-	}
 }
