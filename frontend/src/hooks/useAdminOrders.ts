@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getAdminOrders } from "@/apis";
 import type { Order } from "@/types";
 
@@ -6,23 +6,24 @@ export const useAdminOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    getAdminOrders()
+  const loadOrders = useCallback(() => {
+    setLoading(true);
+    return getAdminOrders()
       .then((data) => {
-        if (active) {
-          setOrders(data);
-        }
+        setOrders(data);
       })
       .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
+        setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    loadOrders();
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadOrders]);
 
-  return { orders, loading };
+  return { orders, loading, setOrders, refresh: loadOrders };
 };

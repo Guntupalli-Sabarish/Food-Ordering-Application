@@ -4,175 +4,245 @@ import type {
   DashboardMetric,
   MenuItem,
   Order,
+  OrderStatus,
   Restaurant,
   Role,
   User,
 } from "@/types";
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+type ApiResponse<T> = {
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
+  path: string;
+  status: number;
+};
 
-const mockUsers: Array<User & { password: string }> = [
-  {
-    id: "u1",
-    name: "Asha Verma",
-    email: "customer@food.app",
-    role: "CUSTOMER",
-    password: "password123",
-  },
-  {
-    id: "u2",
-    name: "Admin Kapoor",
-    email: "admin@food.app",
-    role: "ADMIN",
-    password: "admin123",
-  },
-  {
-    id: "u3",
-    name: "Super Admin",
-    email: "super@food.app",
-    role: "SUPER_ADMIN",
-    password: "super123",
-  },
-];
+type AuthResponse = {
+  token: string;
+  userId: number;
+  name: string;
+  email: string;
+  role: Role;
+};
 
-const restaurants: Restaurant[] = [
-  {
-    id: "r1",
-    name: "Spice & Spark",
-    cuisine: "North Indian",
-    rating: 4.6,
-    etaMinutes: 28,
-    priceLevel: "$$",
-    image:
-      "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=800&q=80",
-    tags: ["Bestseller", "Family"],
-  },
-  {
-    id: "r2",
-    name: "Umami Street",
-    cuisine: "Asian Fusion",
-    rating: 4.4,
-    etaMinutes: 32,
-    priceLevel: "$$$",
-    image:
-      "https://images.unsplash.com/photo-1548940740-204726a19be3?auto=format&fit=crop&w=800&q=80",
-    tags: ["New", "Chef Special"],
-  },
-  {
-    id: "r3",
-    name: "Green Bowl",
-    cuisine: "Healthy",
-    rating: 4.5,
-    etaMinutes: 22,
-    priceLevel: "$$",
-    image:
-      "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80",
-    tags: ["Vegan", "Low Cal"],
-  },
-  {
-    id: "r4",
-    name: "Crust & Co.",
-    cuisine: "Italian",
-    rating: 4.3,
-    etaMinutes: 26,
-    priceLevel: "$$",
-    image:
-      "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80",
-    tags: ["Pasta", "Pizza"],
-  },
-];
+type MenuItemDTO = {
+  menuItemId: number;
+  restaurantId: number;
+  itemName: string;
+  description: string;
+  price: number;
+  availability: boolean;
+};
 
-const menuItems: MenuItem[] = [
-  {
-    id: "m1",
-    restaurantId: "r1",
-    name: "Butter Chicken Bowl",
-    description: "Creamy tomato gravy, basmati rice, garlic naan crumbs.",
-    price: 289,
-    isVeg: false,
-    category: "Bowls",
-    image:
-      "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: "m2",
-    restaurantId: "r1",
-    name: "Paneer Tikka Plate",
-    description: "Char-grilled paneer with mint chutney and salad.",
-    price: 249,
-    isVeg: true,
-    category: "Starters",
-    image:
-      "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: "m3",
-    restaurantId: "r2",
-    name: "Korean BBQ Bao",
-    description: "Soft bao buns with bulgogi, kimchi slaw.",
-    price: 199,
-    isVeg: false,
-    category: "Small Plates",
-    image:
-      "https://images.unsplash.com/photo-1540648639573-28bc2a45f7f6?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: "m4",
-    restaurantId: "r3",
-    name: "Rainbow Power Bowl",
-    description: "Quinoa, roasted veggies, avocado, citrus dressing.",
-    price: 239,
-    isVeg: true,
-    category: "Bowls",
-    image:
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: "m5",
-    restaurantId: "r4",
-    name: "Truffle Mushroom Pizza",
-    description: "Sourdough crust, truffle oil, parmesan, wild mushrooms.",
-    price: 329,
-    isVeg: true,
-    category: "Pizza",
-    image:
-      "https://images.unsplash.com/photo-1548365328-8b849e6f3d55?auto=format&fit=crop&w=800&q=80",
-  },
-];
+type CartItemDTO = {
+  menuItem: MenuItemDTO;
+  quantity: number;
+};
 
-let orders: Order[] = [
-  {
-    id: "o1",
-    restaurantName: "Spice & Spark",
-    items: [
-      { item: menuItems[0], quantity: 1 },
-      { item: menuItems[1], quantity: 1 },
-    ],
-    total: 538,
-    status: "OUT_FOR_DELIVERY",
-    createdAt: "2026-05-25T10:24:00Z",
-  },
-  {
-    id: "o2",
-    restaurantName: "Green Bowl",
-    items: [{ item: menuItems[3], quantity: 2 }],
-    total: 478,
-    status: "DELIVERED",
-    createdAt: "2026-05-20T12:24:00Z",
-  },
-];
+type CartDTO = {
+  cartId: number;
+  userId: number;
+  items: CartItemDTO[];
+};
+
+type RestaurantDTO = {
+  restaurantId: number;
+  name: string;
+  address: string;
+  cuisine: string;
+  adminId: number;
+  active: boolean;
+};
+
+type UserDTO = {
+  userId: number;
+  name: string;
+  email: string;
+  role: Role;
+};
+
+type OrderItemDTO = {
+  menuItemId: number;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+
+type OrderDTO = {
+  orderId: number;
+  userId: number;
+  restaurantId: number;
+  totalAmount: number;
+  orderStatus: string;
+  createdAt: string;
+  items: OrderItemDTO[];
+};
+
+type PaymentDTO = {
+  paymentId: number;
+  orderId: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  amount: number;
+  createdAt: string;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const DEFAULT_RESTAURANT_IMAGE =
+  "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80";
+const DEFAULT_MENU_IMAGE =
+  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
+
+const getStoredAuth = () => {
+  const stored = localStorage.getItem("foodapp.auth");
+  if (!stored) {
+    return null;
+  }
+  try {
+    return JSON.parse(stored) as { user: User; token: string };
+  } catch {
+    return null;
+  }
+};
+
+const getAuthToken = () => getStoredAuth()?.token ?? null;
+
+const buildUrl = (path: string) => {
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  return `${API_BASE_URL}${path}`;
+};
+
+const parseApiError = async (response: Response) => {
+  try {
+    const payload = (await response.json()) as Partial<ApiResponse<unknown>> & {
+      message?: string;
+    };
+    return payload.message || `Request failed (${response.status})`;
+  } catch {
+    return `Request failed (${response.status})`;
+  }
+};
+
+const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  const token = getAuthToken();
+  const headers = new Headers(options?.headers);
+  headers.set("Accept", "application/json");
+  if (options?.body) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(buildUrl(path), {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+};
+
+const unwrapApiResponse = async <T>(path: string, options?: RequestInit) => {
+  const payload = await apiRequest<ApiResponse<T>>(path, options);
+  return payload.data;
+};
+
+const toOrderStatus = (status: string): OrderStatus => {
+  switch (status) {
+    case "PENDING":
+      return "PLACED";
+    case "ACCEPTED":
+      return "PREPARING";
+    case "PREPARING":
+      return "PREPARING";
+    case "OUT_FOR_DELIVERY":
+      return "OUT_FOR_DELIVERY";
+    case "DELIVERED":
+      return "DELIVERED";
+    case "CANCELLED":
+      return "CANCELLED";
+    default:
+      return "PLACED";
+  }
+};
+
+const mapRestaurant = (dto: RestaurantDTO): Restaurant => ({
+  id: String(dto.restaurantId ?? ""),
+  name: dto.name ?? "Restaurant",
+  cuisine: dto.cuisine ?? "",
+  rating: 4.5,
+  etaMinutes: 30,
+  priceLevel: "$$",
+  image: DEFAULT_RESTAURANT_IMAGE,
+  tags: dto.active ? ["Open"] : ["Closed"],
+});
+
+const mapMenuItem = (dto: MenuItemDTO): MenuItem => ({
+  id: String(dto.menuItemId ?? ""),
+  restaurantId: String(dto.restaurantId ?? ""),
+  name: dto.itemName ?? "Item",
+  description: dto.description ?? "",
+  price: Number(dto.price ?? 0),
+  isVeg: false,
+  category: "Main",
+  image: DEFAULT_MENU_IMAGE,
+});
+
+const mapUser = (dto: UserDTO): User => ({
+  id: String(dto.userId ?? ""),
+  name: dto.name ?? "",
+  email: dto.email ?? "",
+  role: dto.role ?? "CUSTOMER",
+});
+
+const mapOrder = (dto: OrderDTO): Order => ({
+  id: String(dto.orderId ?? ""),
+  restaurantName: dto.restaurantId
+    ? `Restaurant #${dto.restaurantId}`
+    : "Restaurant",
+  items: (dto.items ?? []).map((item) => ({
+    item: {
+      id: String(item.menuItemId ?? ""),
+      restaurantId: String(dto.restaurantId ?? ""),
+      name: `Item #${item.menuItemId ?? ""}`,
+      description: "",
+      price: Number(item.unitPrice ?? 0),
+      isVeg: false,
+      category: "Main",
+      image: DEFAULT_MENU_IMAGE,
+    },
+    quantity: item.quantity ?? 1,
+  })),
+  total: Number(dto.totalAmount ?? 0),
+  status: toOrderStatus(dto.orderStatus ?? "PENDING"),
+  createdAt: dto.createdAt ?? new Date().toISOString(),
+});
 
 export const login = async (email: string, password: string) => {
-  await delay(650);
-  const user = mockUsers.find(
-    (item) => item.email === email && item.password === password
-  );
-  if (!user) {
-    throw new Error("Invalid credentials");
-  }
+  const data = await apiRequest<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
   return {
-    token: `mock-token-${user.id}`,
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    token: data.token,
+    user: {
+      id: String(data.userId ?? ""),
+      name: data.name,
+      email: data.email,
+      role: data.role,
+    },
   };
 };
 
@@ -182,172 +252,362 @@ export const register = async (
   password: string,
   role: Role = "CUSTOMER"
 ) => {
-  await delay(650);
-  if (mockUsers.some((item) => item.email === email)) {
-    throw new Error("User already exists");
-  }
-  const newUser: User & { password: string } = {
-    id: `u${mockUsers.length + 1}`,
-    name,
-    email,
-    role,
-    password,
-  };
-  mockUsers.push(newUser);
+  const data = await apiRequest<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ name, email, password, role }),
+  });
   return {
-    token: `mock-token-${newUser.id}`,
-    user: { id: newUser.id, name, email, role },
+    token: data.token,
+    user: {
+      id: String(data.userId ?? ""),
+      name: data.name,
+      email: data.email,
+      role: data.role,
+    },
   };
 };
 
-export const getProfile = async (email: string) => {
-  await delay(300);
-  const user = mockUsers.find((item) => item.email === email);
-  if (!user) {
-    throw new Error("User not found");
-  }
-  return { id: user.id, name: user.name, email: user.email, role: user.role };
+export const logout = async () => {
+  await apiRequest("/api/auth/logout", { method: "POST" });
+};
+
+export const forgotPassword = async (email: string) => {
+  return apiRequest<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+};
+
+export const resetPassword = async (
+  email: string,
+  token: string,
+  newPassword: string
+) => {
+  return apiRequest<{ message: string }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ email, token, newPassword }),
+  });
+};
+
+export const getProfile = async (_email?: string) => {
+  const data = await apiRequest<AuthResponse>("/api/auth/profile");
+  return {
+    id: String(data.userId ?? ""),
+    name: data.name,
+    email: data.email,
+    role: data.role,
+  } as User;
 };
 
 export const updateProfile = async (payload: Partial<User>) => {
-  await delay(400);
-  return payload;
+  const body: Record<string, string> = {};
+  if (payload.name) body.name = payload.name;
+  if (payload.email) body.email = payload.email;
+  const data = await apiRequest<AuthResponse>("/api/auth/profile/update", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+  return {
+    id: String(data.userId ?? ""),
+    name: data.name,
+    email: data.email,
+    role: data.role,
+  } as User;
 };
 
 export const getRestaurants = async () => {
-  await delay(500);
-  return restaurants;
+  const data = await apiRequest<RestaurantDTO[]>("/api/customer/restaurants");
+  return data.map(mapRestaurant);
 };
 
 export const getRestaurantById = async (id: string) => {
-  await delay(350);
-  return restaurants.find((item) => item.id === id) ?? null;
+  const data = await apiRequest<RestaurantDTO>(`/api/customer/restaurants/${id}`);
+  return mapRestaurant(data);
 };
 
 export const getMenuForRestaurant = async (restaurantId: string) => {
-  await delay(450);
-  return menuItems.filter((item) => item.restaurantId === restaurantId);
-};
-
-export const addToCart = async () => {
-  await delay(200);
-  return { status: "ok" };
-};
-
-export const placeOrder = async (cartItems: CartItem[]) => {
-  await delay(700);
-  const total = cartItems.reduce(
-    (sum, cart) => sum + cart.item.price * cart.quantity,
-    0
+  const data = await apiRequest<MenuItemDTO[]>(
+    `/api/customer/menu/${restaurantId}`
   );
-  const newOrder: Order = {
-    id: `o${orders.length + 1}`,
-    restaurantName: cartItems[0]?.item.restaurantId ?? "Mixed",
-    items: cartItems,
-    total,
-    status: "PLACED",
-    createdAt: new Date().toISOString(),
-  };
-  orders = [newOrder, ...orders];
-  return newOrder;
+  return data.map(mapMenuItem);
+};
+
+export const getMenuItems = async () => {
+  const data = await apiRequest<MenuItemDTO[]>("/api/admin/menu");
+  return data.map(mapMenuItem);
+};
+
+export const getAdminRestaurant = async () => {
+  const data = await apiRequest<RestaurantDTO>("/api/admin/restaurant");
+  return mapRestaurant(data);
+};
+
+export const getSuperRestaurants = async () => {
+  const data = await apiRequest<RestaurantDTO[]>("/api/superadmin/restaurants");
+  return data.map(mapRestaurant);
+};
+
+export const createRestaurant = async (payload: {
+  name: string;
+  address: string;
+  cuisine: string;
+  adminId: number;
+  active?: boolean;
+}) => {
+  const data = await apiRequest<RestaurantDTO>("/api/superadmin/restaurants", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return mapRestaurant(data);
+};
+
+export const updateRestaurantStatus = async (id: string, active: boolean) => {
+  const data = await apiRequest<RestaurantDTO>(
+    `/api/superadmin/restaurants/${id}/status?active=${active}`,
+    { method: "PUT" }
+  );
+  return mapRestaurant(data);
+};
+
+export const createMenuItem = async (payload: {
+  restaurantId: number;
+  itemName: string;
+  description: string;
+  price: number;
+  availability?: boolean;
+}) => {
+  const data = await apiRequest<MenuItemDTO>("/api/admin/menu", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return mapMenuItem(data);
+};
+
+export const getCart = async () => {
+  const data = await apiRequest<CartDTO>("/api/customer/cart");
+  return data.items.map((item) => ({
+    item: mapMenuItem(item.menuItem),
+    quantity: item.quantity,
+  }));
+};
+
+export const addToCart = async (menuItemId: string, quantity = 1) => {
+  const data = await apiRequest<CartDTO>("/api/customer/cart/add", {
+    method: "POST",
+    body: JSON.stringify({ menuItemId: Number(menuItemId), quantity }),
+  });
+  return data.items.map((item) => ({
+    item: mapMenuItem(item.menuItem),
+    quantity: item.quantity,
+  }));
+};
+
+export const updateCartItem = async (itemId: string, quantity: number) => {
+  const data = await apiRequest<CartDTO>(`/api/customer/cart/update/${itemId}`, {
+    method: "PUT",
+    body: JSON.stringify({ quantity }),
+  });
+  return data.items.map((item) => ({
+    item: mapMenuItem(item.menuItem),
+    quantity: item.quantity,
+  }));
+};
+
+export const removeCartItem = async (itemId: string) => {
+  const data = await apiRequest<CartDTO>(`/api/customer/cart/remove/${itemId}`, {
+    method: "DELETE",
+  });
+  return data.items.map((item) => ({
+    item: mapMenuItem(item.menuItem),
+    quantity: item.quantity,
+  }));
+};
+
+export const clearCart = async () => {
+  const data = await apiRequest<CartDTO>("/api/customer/cart/clear", {
+    method: "DELETE",
+  });
+  return data.items.map((item) => ({
+    item: mapMenuItem(item.menuItem),
+    quantity: item.quantity,
+  }));
+};
+
+export const placeOrder = async () => {
+  const data = await apiRequest<OrderDTO>("/api/customer/orders", {
+    method: "POST",
+  });
+  return mapOrder(data);
 };
 
 export const getOrders = async () => {
-  await delay(500);
-  return orders;
+  const data = await apiRequest<OrderDTO[]>("/api/customer/orders");
+  return data.map(mapOrder);
+};
+
+export const getOrderById = async (id: string) => {
+  const data = await apiRequest<OrderDTO>(`/api/customer/orders/${id}`);
+  return mapOrder(data);
+};
+
+export const cancelOrder = async (id: string) => {
+  const data = await apiRequest<OrderDTO>(`/api/customer/orders/${id}/cancel`, {
+    method: "PUT",
+  });
+  return mapOrder(data);
+};
+
+export const trackOrder = async (id: string) => {
+  return apiRequest<{ orderId: number; status: string }>(
+    `/api/customer/orders/${id}/track`
+  );
+};
+
+export const getAdminOrders = async () => {
+  const data = await apiRequest<OrderDTO[]>("/api/admin/orders");
+  return data.map(mapOrder);
+};
+
+export const updateOrderStatus = async (id: string, status: string) => {
+  const data = await apiRequest<OrderDTO>(`/api/admin/orders/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+  return mapOrder(data);
+};
+
+export const initiatePayment = async (orderId: number, method: string) => {
+  return apiRequest<PaymentDTO>("/api/payments/initiate", {
+    method: "POST",
+    body: JSON.stringify({ orderId, method }),
+  });
+};
+
+export const verifyPayment = async (paymentId: number, success: boolean) => {
+  return apiRequest<PaymentDTO>("/api/payments/verify", {
+    method: "POST",
+    body: JSON.stringify({ paymentId, success }),
+  });
+};
+
+export const getPaymentsByOrder = async (orderId: number) => {
+  return apiRequest<PaymentDTO[]>(`/api/payments/${orderId}`);
+};
+
+export const sendEmailNotification = async (payload: {
+  to: string;
+  subject: string;
+  message: string;
+}) => {
+  return unwrapApiResponse("/api/notifications/send-email", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 };
 
 export const getAdminMetrics = async (): Promise<DashboardMetric[]> => {
-  await delay(300);
+  const [revenue, orders] = await Promise.all([
+    apiRequest<{ total: number }>("/api/admin/analytics/revenue"),
+    apiRequest<OrderDTO[]>("/api/admin/orders"),
+  ]);
+
   return [
-    { title: "Orders Today", value: "1,248", change: "+12%" },
-    { title: "Revenue", value: "$42.6K", change: "+8%" },
-    { title: "Active Users", value: "9.4K", change: "+5%" },
+    { title: "Orders", value: String(orders.length), change: "" },
+    { title: "Revenue", value: `$${revenue.total ?? 0}`, change: "" },
+    { title: "Active", value: "-", change: "" },
   ];
 };
 
 export const getSalesSeries = async (): Promise<ChartPoint[]> => {
-  await delay(350);
-  return [
-    { name: "Mon", value: 3200 },
-    { name: "Tue", value: 4100 },
-    { name: "Wed", value: 3800 },
-    { name: "Thu", value: 4600 },
-    { name: "Fri", value: 5200 },
-    { name: "Sat", value: 6100 },
-    { name: "Sun", value: 5700 },
-  ];
+  try {
+    const data = await apiRequest<{ daily?: Array<{ date: string; amount: number }> }>(
+      "/api/superadmin/analytics/revenue"
+    );
+    if (data.daily?.length) {
+      return data.daily.map((item) => ({ name: item.date, value: item.amount }));
+    }
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("403")) {
+      throw error;
+    }
+  }
+
+  const adminRevenue = await apiRequest<{ total: number }>(
+    "/api/admin/analytics/revenue"
+  );
+  return [{ name: "total", value: adminRevenue.total ?? 0 }];
 };
 
 export const getOrderVolumeSeries = async (): Promise<ChartPoint[]> => {
-  await delay(350);
-  return [
-    { name: "Breakfast", value: 420 },
-    { name: "Lunch", value: 860 },
-    { name: "Snacks", value: 520 },
-    { name: "Dinner", value: 1120 },
-  ];
+  try {
+    const data = await apiRequest<{ completed: number; pending: number; cancelled: number }>(
+      "/api/superadmin/analytics/orders"
+    );
+    return [
+      { name: "Completed", value: data.completed ?? 0 },
+      { name: "Pending", value: data.pending ?? 0 },
+      { name: "Cancelled", value: data.cancelled ?? 0 },
+    ];
+  } catch {
+    const orders = await apiRequest<OrderDTO[]>("/api/admin/orders");
+    const counts = orders.reduce(
+      (acc, order) => {
+        const status = order.orderStatus ?? "PENDING";
+        acc[status] = (acc[status] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }
 };
 
 export const getCategoryDistribution = async (): Promise<ChartPoint[]> => {
-  await delay(300);
-  return [
-    { name: "Indian", value: 38 },
-    { name: "Asian", value: 24 },
-    { name: "Italian", value: 18 },
-    { name: "Healthy", value: 20 },
-  ];
+  try {
+    const data = await apiRequest<{ items: Array<{ name: string; orders: number }> }>(
+      "/api/admin/analytics/top-items"
+    );
+    return data.items.map((item) => ({ name: item.name, value: item.orders }));
+  } catch {
+    return [];
+  }
 };
 
 export const getPlatformMetrics = async (): Promise<DashboardMetric[]> => {
-  await delay(350);
+  const data = await apiRequest<{
+    totalRevenue: number;
+    totalOrders: number;
+    totalUsers: number;
+    activeUsers: number;
+  }>("/api/superadmin/analytics/overview");
+
   return [
-    { title: "Live Restaurants", value: "1,920", change: "+4%" },
-    { title: "Conversion", value: "3.4%", change: "+0.2%" },
-    { title: "Latency", value: "220ms", change: "-14%" },
+    { title: "Total Revenue", value: `$${data.totalRevenue ?? 0}`, change: "" },
+    { title: "Total Orders", value: String(data.totalOrders ?? 0), change: "" },
+    { title: "Active Users", value: String(data.activeUsers ?? 0), change: "" },
   ];
 };
 
 export const getUsers = async () => {
-  await delay(300);
-  return mockUsers.map(({ password, ...user }) => user);
+  const data = await apiRequest<UserDTO[]>("/api/superadmin/users");
+  return data.map(mapUser);
 };
 
 export const getSystemLogs = async () => {
-  await delay(250);
   return [
     {
       id: "log1",
       level: "INFO",
-      message: "Auto-scaling triggered for peak orders.",
-      time: "10:24 AM",
-    },
-    {
-      id: "log2",
-      level: "WARN",
-      message: "Payment latency above threshold in Zone 2.",
-      time: "11:02 AM",
-    },
-    {
-      id: "log3",
-      level: "INFO",
-      message: "New restaurant onboarded: Spice & Spark.",
-      time: "11:45 AM",
+      message: "System logs are not exposed yet.",
+      time: new Date().toLocaleTimeString(),
     },
   ];
 };
 
-export const getMenuItems = async () => {
-  await delay(300);
-  return menuItems;
+export const getHealth = async () => {
+  return unwrapApiResponse("/api/health");
 };
 
-export const getAdminOrders = async () => {
-  await delay(300);
-  return orders;
-};
-
-export const getManagedRestaurants = async () => {
-  await delay(300);
-  return restaurants;
+export const getConfig = async () => {
+  return unwrapApiResponse("/api/config");
 };

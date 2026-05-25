@@ -33,6 +33,15 @@ public class User {
 	@Column(nullable = false)
 	private UserRole role;
 
+	@Column(name = "email_verified", nullable = false)
+	private boolean emailVerified;
+
+	@Column(name = "verification_token")
+	private String verificationToken;
+
+	@Column(name = "verification_token_expires_at")
+	private LocalDateTime verificationTokenExpiresAt;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
@@ -43,6 +52,9 @@ public class User {
 		}
 		if (role == null) {
 			role = UserRole.CUSTOMER;
+		}
+		if (!emailVerified) {
+			emailVerified = false;
 		}
 	}
 
@@ -84,6 +96,30 @@ public class User {
 
 	public void setRole(UserRole role) {
 		this.role = role;
+	}
+
+	public boolean isEmailVerified() {
+		return emailVerified;
+	}
+
+	public void setEmailVerified(boolean emailVerified) {
+		this.emailVerified = emailVerified;
+	}
+
+	public String getVerificationToken() {
+		return verificationToken;
+	}
+
+	public void setVerificationToken(String verificationToken) {
+		this.verificationToken = verificationToken;
+	}
+
+	public LocalDateTime getVerificationTokenExpiresAt() {
+		return verificationTokenExpiresAt;
+	}
+
+	public void setVerificationTokenExpiresAt(LocalDateTime verificationTokenExpiresAt) {
+		this.verificationTokenExpiresAt = verificationTokenExpiresAt;
 	}
 
 	public LocalDateTime getCreatedAt() {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getMenuItems } from "@/apis";
 import type { MenuItem } from "@/types";
 
@@ -6,23 +6,24 @@ export const useAdminMenu = () => {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    getMenuItems()
+  const loadItems = useCallback(() => {
+    setLoading(true);
+    return getMenuItems()
       .then((data) => {
-        if (active) {
-          setItems(data);
-        }
+        setItems(data);
       })
       .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
+        setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    loadItems();
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadItems]);
 
-  return { items, loading };
+  return { items, loading, refresh: loadItems };
 };

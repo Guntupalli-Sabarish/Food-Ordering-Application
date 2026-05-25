@@ -5,6 +5,7 @@ import com.foodorderapplication.backend.dto.auth.LoginRequest;
 import com.foodorderapplication.backend.dto.auth.RegisterRequest;
 import com.foodorderapplication.backend.service.AuthService;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -15,10 +16,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
+
+    @Value("${app.frontend.login-url:http://localhost:5173/login}")
+    private String frontendLoginUrl;
 
     public AuthController(AuthService authService) {
         this.authService = authService;
@@ -60,5 +66,12 @@ public class AuthController {
     public ResponseEntity<AuthResponse> updateProfile(
             Authentication authentication, @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(authService.updateProfile(authentication.getName(), body));
+    }
+
+    @GetMapping("/verify-email")
+    public void verifyEmail(String token, HttpServletResponse response) throws Exception {
+        authService.verifyEmail(token);
+        String redirectUrl = frontendLoginUrl + "?verified=true";
+        response.sendRedirect(redirectUrl);
     }
 }

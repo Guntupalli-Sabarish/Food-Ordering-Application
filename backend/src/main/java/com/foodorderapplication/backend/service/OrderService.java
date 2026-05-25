@@ -13,6 +13,8 @@ import com.foodorderapplication.backend.repository.OrderItemRepository;
 import com.foodorderapplication.backend.repository.OrderRepository;
 import com.foodorderapplication.backend.repository.RestaurantRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
+import com.foodorderapplication.backend.util.EmailRequest;
+import com.foodorderapplication.backend.util.EmailType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -31,10 +33,12 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final RestaurantRepository restaurantRepository;
+    private final NotificationService notificationService;
 
         public OrderService(UserRepository userRepository, MenuItemRepository menuItemRepository,
             CartRepository cartRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository,
-            OrderItemRepository orderItemRepository, RestaurantRepository restaurantRepository) {
+            OrderItemRepository orderItemRepository, RestaurantRepository restaurantRepository,
+            NotificationService notificationService) {
         this.userRepository = userRepository;
         this.menuItemRepository = menuItemRepository;
         this.cartRepository = cartRepository;
@@ -42,6 +46,7 @@ public class OrderService {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.restaurantRepository = restaurantRepository;
+        this.notificationService = notificationService;
     }
 
     private Long resolveUserId(String email) {
@@ -152,7 +157,9 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         order.setOrderStatus(status);
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        sendOrderStatusEmail(saved);
+        return saved;
     }
 
     public Order updateOrderStatusForAdmin(String adminEmail, Long orderId, OrderStatus status) {
@@ -166,11 +173,29 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed for this restaurant");
         }
         order.setOrderStatus(status);
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        sendOrderStatusEmail(saved);
+        return saved;
     }
 
     public Order getOrderById(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+    }
+
+    private void sendOrderStatusEmail(Order order) {
+        if (order == null) {
+            return;
+        }
+        userRepository.findById(order.getUserId()).ifPresent(user -> {
+            EmailRequest request = new EmailRequest();
+            request.setTo(user.getEmail());
+            request.setType(EmailType.ORDER_STATUS_UPDATE);
+            request.setContext(java.util.Map.of(
+                    "name", user.getName() == null ? "Customer" : user.getName(),
+                    "orderId", String.valueOf(order.getOrderId()),
+                    "status", order.getOrderStatus().name()));
+            notificationService.sendEmail(request);
+        });
     }
 }

@@ -58,9 +58,11 @@ public class NotificationService {
             return "Notification";
         }
         return switch (type) {
+            case EMAIL_VERIFICATION -> "Verify your Food Ordering account";
             case REGISTRATION -> "Welcome to Food Ordering";
             case ORDER_CONFIRMATION -> "Your order is confirmed";
             case PAYMENT_STATUS -> "Payment status update";
+            case ORDER_STATUS_UPDATE -> "Your order status has changed";
         };
     }
 
@@ -72,15 +74,19 @@ public class NotificationService {
         String orderId = getContextValue(context, "orderId", "N/A");
         String status = getContextValue(context, "status", "PENDING");
         String amount = getContextValue(context, "amount", "0.00");
+        String verificationLink = getContextValue(context, "verificationLink", "");
 
         if (type == null) {
             return "Hello " + name + ",\n\nYou have a new notification from Food Ordering.";
         }
 
         return switch (type) {
+            case EMAIL_VERIFICATION -> "Hello " + name + ",\n\nPlease verify your email by visiting: "
+                    + verificationLink + "\n\nThis link expires soon.";
             case REGISTRATION -> "Hello " + name + ",\n\nThanks for registering with Food Ordering.";
             case ORDER_CONFIRMATION -> "Hello " + name + ",\n\nYour order " + orderId + " has been confirmed.";
             case PAYMENT_STATUS -> "Hello " + name + ",\n\nPayment status for order " + orderId + " is " + status + ". Amount: " + amount + ".";
+            case ORDER_STATUS_UPDATE -> "Hello " + name + ",\n\nOrder " + orderId + " status is now " + status + ".";
         };
     }
 

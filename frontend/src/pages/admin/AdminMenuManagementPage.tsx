@@ -11,13 +11,73 @@ import {
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/common/PageHeader";
+import { createMenuItem } from "@/apis";
 import { useAdminMenu } from "@/hooks/useAdminMenu";
+import { useAdminRestaurant } from "@/hooks/useAdminRestaurant";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useToast } from "@/hooks/use-toast";
 
 export const AdminMenuManagementPage = () => {
   usePageTitle("Menu Management");
-  const { items } = useAdminMenu();
+  const { items, refresh } = useAdminMenu();
+  const { restaurant } = useAdminRestaurant();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [itemName, setItemName] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!restaurant) {
+      toast({
+        title: "Restaurant not found",
+        description: "Assign a restaurant before adding menu items.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!itemName || !description || !price) {
+      toast({
+        title: "Missing fields",
+        description: "Provide name, description, and price.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const parsedPrice = Number(price);
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      toast({
+        title: "Invalid price",
+        description: "Price must be a positive number.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await createMenuItem({
+        restaurantId: Number(restaurant.id),
+        itemName,
+        description,
+        price: parsedPrice,
+        availability: true,
+      });
+      await refresh();
+      setItemName("");
+      setDescription("");
+      setPrice("");
+      setOpen(false);
+      toast({ title: "Menu item added", description: "Item saved successfully." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Save failed";
+      toast({ title: "Save failed", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -37,10 +97,24 @@ export const AdminMenuManagementPage = () => {
                 <DialogTitle>Add menu item</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                <Input placeholder="Item name" />
-                <Input placeholder="Category" />
-                <Input placeholder="Price" />
-                <Button onClick={() => setOpen(false)}>Save</Button>
+                  <Input
+                    placeholder="Item name"
+                    value={itemName}
+                    onChange={(event) => setItemName(event.target.value)}
+                  />
+                  <Input
+                    placeholder="Description"
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                  />
+                  <Input
+                    placeholder="Price"
+                    value={price}
+                    onChange={(event) => setPrice(event.target.value)}
+                  />
+                  <Button onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving..." : "Save"}
+                  </Button>
               </div>
             </DialogContent>
           </Dialog>

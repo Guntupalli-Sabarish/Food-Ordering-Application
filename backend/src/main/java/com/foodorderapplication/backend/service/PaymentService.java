@@ -6,6 +6,8 @@ import com.foodorderapplication.backend.model.Payment;
 import com.foodorderapplication.backend.repository.OrderRepository;
 import com.foodorderapplication.backend.repository.PaymentRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
+import com.foodorderapplication.backend.util.EmailRequest;
+import com.foodorderapplication.backend.util.EmailType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -18,12 +20,14 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public PaymentService(PaymentRepository paymentRepository, OrderRepository orderRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository, NotificationService notificationService) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -62,6 +66,7 @@ public class PaymentService {
             // move order forward to ACCEPTED
             order.setOrderStatus(OrderStatus.ACCEPTED);
             orderRepository.save(order);
+            sendOrderConfirmationEmail(order);
         } else {
             p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.FAILED);
         }
@@ -85,5 +90,21 @@ public class PaymentService {
         return userRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"))
                 .getUserId();
+    }
+
+    private void sendOrderConfirmationEmail(Order order) {
+        if (order == null) {
+            return;
+        }
+        userRepository.findById(order.getUserId()).ifPresent(user -> {
+            EmailRequest request = new EmailRequest();
+            request.setTo(user.getEmail());
+            request.setType(EmailType.ORDER_CONFIRMATION);
+            request.setContext(java.util.Map.of(
+                    "name", user.getName() == null ? "Customer" : user.getName(),
+                    "orderId", String.valueOf(order.getOrderId()),
+                    "amount", String.valueOf(order.getTotalAmount())));
+            notificationService.sendEmail(request);
+        });
     }
 }

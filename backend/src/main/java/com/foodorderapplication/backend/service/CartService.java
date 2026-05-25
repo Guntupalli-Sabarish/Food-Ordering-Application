@@ -1,7 +1,11 @@
 package com.foodorderapplication.backend.service;
 
+import com.foodorderapplication.backend.dto.CartDTO;
+import com.foodorderapplication.backend.dto.CartItemDTO;
+import com.foodorderapplication.backend.dto.MenuItemDTO;
 import com.foodorderapplication.backend.model.Cart;
 import com.foodorderapplication.backend.model.CartItem;
+import com.foodorderapplication.backend.model.MenuItem;
 import com.foodorderapplication.backend.model.User;
 import com.foodorderapplication.backend.repository.CartItemRepository;
 import com.foodorderapplication.backend.repository.CartRepository;
@@ -35,24 +39,25 @@ public class CartService {
     }
 
     @Transactional
-    public Cart getCart(String userEmail) {
+    public CartDTO getCart(String userEmail) {
         Long userId = resolveUserId(userEmail);
         return cartRepository.findByUserId(userId)
+                .map(this::toDto)
                 .orElseGet(() -> {
                     Cart cart = new Cart();
                     cart.setUserId(userId);
-                    return cartRepository.save(cart);
+                    return toDto(cartRepository.save(cart));
                 });
     }
 
     @Transactional
-    public Cart addItem(String userEmail, Long menuItemId, int quantity) {
+    public CartDTO addItem(String userEmail, Long menuItemId, int quantity) {
         if (quantity <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be positive");
         }
         menuItemRepository.findById(menuItemId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
-        Cart cart = getCart(userEmail);
+        Cart cart = getCartEntity(userEmail);
         Optional<CartItem> existing = cartItemRepository.findByCartAndMenuItemId(cart, menuItemId);
         if (existing.isPresent()) {
             CartItem item = existing.get();
@@ -64,15 +69,15 @@ public class CartService {
             cartItemRepository.save(item);
             cart.getItems().add(item);
         }
-        return cart;
+        return toDto(cartRepository.findById(cart.getCartId()).orElse(cart));
     }
 
     @Transactional
-    public Cart updateItem(String userEmail, Long menuItemId, int quantity) {
+    public CartDTO updateItem(String userEmail, Long menuItemId, int quantity) {
         if (quantity < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity cannot be negative");
         }
-        Cart cart = getCart(userEmail);
+        Cart cart = getCartEntity(userEmail);
         CartItem item = cartItemRepository.findByCartAndMenuItemId(cart, menuItemId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cart item not found"));
         if (quantity == 0) {
@@ -82,20 +87,60 @@ public class CartService {
             item.setQuantity(quantity);
             cartItemRepository.save(item);
         }
-        return cart;
+        return toDto(cartRepository.findById(cart.getCartId()).orElse(cart));
     }
 
     @Transactional
-    public Cart removeItem(String userEmail, Long menuItemId) {
-        Cart cart = getCart(userEmail);
+    public CartDTO removeItem(String userEmail, Long menuItemId) {
+        Cart cart = getCartEntity(userEmail);
         cartItemRepository.deleteByCartAndMenuItemId(cart, menuItemId);
         cart.getItems().removeIf(i -> i.getMenuItemId().equals(menuItemId));
-        return cart;
+        return toDto(cartRepository.findById(cart.getCartId()).orElse(cart));
     }
 
     @Transactional
-    public void clearCart(String userEmail) {
-        Cart cart = getCart(userEmail);
+    public CartDTO clearCart(String userEmail) {
+        Cart cart = getCartEntity(userEmail);
         cartItemRepository.deleteByCart(cart);
+        cart.getItems().clear();
+        return toDto(cartRepository.findById(cart.getCartId()).orElse(cart));
+    }
+
+    private Cart getCartEntity(String userEmail) {
+        Long userId = resolveUserId(userEmail);
+        return cartRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    Cart cart = new Cart();
+                    cart.setUserId(userId);
+                    return cartRepository.save(cart);
+                });
+    }
+
+    private CartDTO toDto(Cart cart) {
+        CartDTO dto = new CartDTO();
+        dto.setCartId(cart.getCartId());
+        dto.setUserId(cart.getUserId());
+        dto.setItems(cartItemRepository.findByCart(cart).stream().map(this::toCartItemDto).toList());
+        return dto;
+    }
+
+    private CartItemDTO toCartItemDto(CartItem item) {
+        MenuItem menuItem = menuItemRepository.findById(item.getMenuItemId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
+        CartItemDTO dto = new CartItemDTO();
+        dto.setMenuItem(toMenuItemDto(menuItem));
+        dto.setQuantity(item.getQuantity());
+        return dto;
+    }
+
+    private MenuItemDTO toMenuItemDto(MenuItem menuItem) {
+        MenuItemDTO dto = new MenuItemDTO();
+        dto.setMenuItemId(menuItem.getMenuItemId());
+        dto.setRestaurantId(menuItem.getRestaurant().getRestaurantId());
+        dto.setItemName(menuItem.getItemName());
+        dto.setDescription(menuItem.getDescription());
+        dto.setPrice(menuItem.getPrice());
+        dto.setAvailability(menuItem.isAvailability());
+        return dto;
     }
 }

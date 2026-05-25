@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { getSuperRestaurants } from "@/apis";
+import { getAdminRestaurant } from "@/apis";
 import type { Restaurant } from "@/types";
 
-export const useManagedRestaurants = () => {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+export const useAdminRestaurant = () => {
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    getSuperRestaurants()
+    getAdminRestaurant()
       .then((data) => {
         if (active) {
-          setRestaurants(data);
+          setRestaurant(data);
         }
       })
       .finally(() => {
@@ -24,5 +24,5 @@ export const useManagedRestaurants = () => {
     };
   }, []);
 
-  return { restaurants, loading };
+  return { restaurant, loading };
 };
