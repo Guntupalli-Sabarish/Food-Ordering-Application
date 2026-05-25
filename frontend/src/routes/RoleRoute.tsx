@@ -7,7 +7,10 @@ interface RoleRouteProps {
 }
 
 export const RoleRoute = ({ allow }: RoleRouteProps) => {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
+  if (!ready) {
+    return null;
+  }
   if (!user) {
     return <Navigate to="/login" replace />;
   }

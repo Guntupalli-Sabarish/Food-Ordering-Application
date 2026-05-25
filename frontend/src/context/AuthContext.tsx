@@ -5,13 +5,14 @@ import {
   useMemo,
   useState,
 } from "react";
-import { login as apiLogin, register as apiRegister } from "@/apis";
+import { getProfile, login as apiLogin, logout as apiLogout, register as apiRegister } from "@/apis";
 import type { Role, User } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextValue {
   user: User | null;
   token: string | null;
+  ready: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (
     name: string,
@@ -26,21 +27,26 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = "foodapp.auth";
 
+const loadStoredAuth = () => {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) {
+    return null;
+  }
+  try {
+    return JSON.parse(stored) as { user: User; token: string };
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { toast } = useToast();
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored) as { user: User; token: string };
-      setUser(parsed.user);
-      setToken(parsed.token);
-    }
-  }, []);
+  const storedAuth = loadStoredAuth();
+  const [user, setUser] = useState<User | null>(storedAuth?.user ?? null);
+  const [token, setToken] = useState<string | null>(storedAuth?.token ?? null);
+  const [ready, setReady] = useState(false);
 
   const persist = useCallback((nextUser: User, nextToken: string) => {
     setUser(nextUser);
@@ -51,10 +57,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   }, []);
 
+  const clearAuth = useCallback(() => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const hydrateProfile = async () => {
+      if (!token) {
+        if (active) {
+          setReady(true);
+        }
+        return;
+      }
+      try {
+        const profile = await getProfile();
+        if (active) {
+          setUser(profile);
+        }
+      } catch {
+        if (active) {
+          clearAuth();
+        }
+      } finally {
+        if (active) {
+          setReady(true);
+        }
+      }
+    };
+    hydrateProfile();
+    return () => {
+      active = false;
+    };
+  }, [token, clearAuth]);
+
   const login = useCallback(
     async (email: string, password: string) => {
       const response = await apiLogin(email, password);
       persist(response.user, response.token);
+      setReady(true);
       toast({ title: "Welcome back!", description: "Login successful." });
     },
     [persist, toast]
@@ -67,23 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       password: string,
       role: Role = "CUSTOMER"
     ) => {
-      const response = await apiRegister(name, email, password, role);
-      persist(response.user, response.token);
-      toast({ title: "Account created", description: "Welcome aboard!" });
+      await apiRegister(name, email, password, role);
+      clearAuth();
+      toast({
+        title: "Verify your email",
+        description: "We sent a verification link to your inbox.",
+      });
     },
-    [persist, toast]
+    [clearAuth, toast]
   );
 
   const logout = useCallback(() => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem(STORAGE_KEY);
+    apiLogout().catch(() => undefined);
+    clearAuth();
     toast({ title: "Logged out", description: "See you soon!" });
-  }, [toast]);
+  }, [clearAuth, toast]);
 
   const value = useMemo(
-    () => ({ user, token, login, logout, register }),
-    [user, token, login, logout, register]
+    () => ({ user, token, ready, login, logout, register }),
+    [user, token, ready, login, logout, register]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

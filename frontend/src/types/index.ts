@@ -10,12 +10,15 @@ export interface User {
 export interface Restaurant {
   id: string;
   name: string;
+  address?: string;
   cuisine: string;
   rating: number;
   etaMinutes: number;
   priceLevel: "$" | "$$" | "$$$";
   image: string;
   tags: string[];
+  adminId?: number;
+  active?: boolean;
 }
 
 export interface MenuItem {

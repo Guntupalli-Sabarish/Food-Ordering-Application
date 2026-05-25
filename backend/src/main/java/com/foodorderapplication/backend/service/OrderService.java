@@ -103,6 +103,8 @@ public class OrderService {
         orderItemRepository.saveAll(orderItems);
         savedOrder.setItems(orderItems);
 
+        sendOrderConfirmationEmail(savedOrder);
+
         cartItemRepository.deleteByCart(cart);
         return savedOrder;
     }
@@ -132,7 +134,9 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending orders can be cancelled");
         }
         order.setOrderStatus(OrderStatus.CANCELLED);
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+        sendOrderStatusEmail(saved);
+        return saved;
     }
 
     public Order trackOrder(String userEmail, Long orderId) {
@@ -195,6 +199,21 @@ public class OrderService {
                     "name", user.getName() == null ? "Customer" : user.getName(),
                     "orderId", String.valueOf(order.getOrderId()),
                     "status", order.getOrderStatus().name()));
+            notificationService.sendEmail(request);
+        });
+    }
+
+    private void sendOrderConfirmationEmail(Order order) {
+        if (order == null) {
+            return;
+        }
+        userRepository.findById(order.getUserId()).ifPresent(user -> {
+            EmailRequest request = new EmailRequest();
+            request.setTo(user.getEmail());
+            request.setType(EmailType.ORDER_CONFIRMATION);
+            request.setContext(java.util.Map.of(
+                    "name", user.getName() == null ? "Customer" : user.getName(),
+                    "orderId", String.valueOf(order.getOrderId())));
             notificationService.sendEmail(request);
         });
     }

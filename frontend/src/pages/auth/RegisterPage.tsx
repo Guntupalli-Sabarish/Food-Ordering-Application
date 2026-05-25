@@ -32,7 +32,7 @@ export const RegisterPage = () => {
     try {
       setLoading(true);
       await register(name, email, password);
-      navigate("/");
+      navigate("/login?verify=sent");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Registration failed";
       toast({ title: "Registration failed", description: message, variant: "destructive" });

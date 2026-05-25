@@ -20,22 +20,38 @@ export const useSuperDashboard = () => {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      getPlatformMetrics(),
-      getSalesSeries(),
-      getOrderVolumeSeries(),
-      getUsers(),
-      getSystemLogs(),
-    ]).then(([metricsData, salesData, orderData, usersData, logsData]) => {
-      if (active) {
-        setMetrics(metricsData);
-        setSalesSeries(salesData);
-        setOrderVolume(orderData);
-        setUsers(usersData);
-        setLogs(logsData);
-        setLoading(false);
+    const load = async () => {
+      const results = await Promise.allSettled([
+        getPlatformMetrics(),
+        getSalesSeries(),
+        getOrderVolumeSeries(),
+        getUsers(),
+        getSystemLogs(),
+      ]);
+
+      if (!active) {
+        return;
       }
-    });
+
+      if (results[0].status === "fulfilled") {
+        setMetrics(results[0].value);
+      }
+      if (results[1].status === "fulfilled") {
+        setSalesSeries(results[1].value);
+      }
+      if (results[2].status === "fulfilled") {
+        setOrderVolume(results[2].value);
+      }
+      if (results[3].status === "fulfilled") {
+        setUsers(results[3].value);
+      }
+      if (results[4].status === "fulfilled") {
+        setLogs(results[4].value);
+      }
+      setLoading(false);
+    };
+
+    load();
 
     return () => {
       active = false;

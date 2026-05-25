@@ -161,8 +161,22 @@ public class SmtpClient {
         if (line == null) {
             throw new IOException("SMTP server closed the connection");
         }
-        logger.debug("SMTP response: {}", line);
-        return line;
+        StringBuilder response = new StringBuilder(line);
+        if (line.length() >= 4 && line.charAt(3) == '-') {
+            String code = line.substring(0, 3);
+            while (true) {
+                String next = reader.readLine();
+                if (next == null) {
+                    throw new IOException("SMTP server closed the connection");
+                }
+                response.append("\n").append(next);
+                if (next.startsWith(code + " ")) {
+                    break;
+                }
+            }
+        }
+        logger.debug("SMTP response: {}", response);
+        return response.toString();
     }
 
     private void expect(String response, int expectedCode) throws IOException {

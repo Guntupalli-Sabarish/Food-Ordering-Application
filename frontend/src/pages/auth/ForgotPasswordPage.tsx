@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { forgotPassword } from "@/apis";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
@@ -12,12 +13,18 @@ export const ForgotPasswordPage = () => {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    toast({
-      title: "Reset link sent",
-      description: "Check your inbox for password reset instructions.",
-    });
+    try {
+      await forgotPassword(email);
+      toast({
+        title: "Reset link sent",
+        description: "Check your inbox for password reset instructions.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Request failed";
+      toast({ title: "Request failed", description: message, variant: "destructive" });
+    }
   };
 
   return (

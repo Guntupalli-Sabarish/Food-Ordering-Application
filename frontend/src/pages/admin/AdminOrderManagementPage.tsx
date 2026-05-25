@@ -3,10 +3,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/common/PageHeader";
 import { useAdminOrders } from "@/hooks/useAdminOrders";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { updateOrderStatus } from "@/apis";
+import { useToast } from "@/hooks/use-toast";
 
 export const AdminOrderManagementPage = () => {
   usePageTitle("Order Management");
-  const { orders } = useAdminOrders();
+  const { orders, refresh } = useAdminOrders();
+  const { toast } = useToast();
+
+  const handleStatusChange = async (orderId: string, status: string) => {
+    try {
+      await updateOrderStatus(orderId, status);
+      await refresh();
+      toast({ title: "Status updated", description: "Order status updated." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Update failed";
+      toast({ title: "Update failed", description: message, variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -30,7 +44,10 @@ export const AdminOrderManagementPage = () => {
               <TableCell>{order.restaurantName}</TableCell>
               <TableCell>₹{order.total}</TableCell>
               <TableCell>
-                <Select defaultValue={order.status}>
+                <Select
+                  defaultValue={order.status}
+                  onValueChange={(value) => handleStatusChange(order.id, value)}
+                >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
