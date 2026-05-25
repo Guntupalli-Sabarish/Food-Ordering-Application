@@ -36,6 +36,7 @@ public class MenuService {
 		menuItem.setRestaurant(restaurant);
 		menuItem.setItemName(request.getItemName().trim());
 		menuItem.setDescription(request.getDescription().trim());
+		menuItem.setCategory(request.getCategory().trim());
 		menuItem.setPrice(request.getPrice());
 		menuItem.setAvailability(request.getAvailability() != null ? request.getAvailability() : true);
 		MenuItem saved = menuItemRepository.save(menuItem);
@@ -72,6 +73,7 @@ public class MenuService {
 		}
 		menuItem.setItemName(request.getItemName().trim());
 		menuItem.setDescription(request.getDescription().trim());
+		menuItem.setCategory(request.getCategory().trim());
 		menuItem.setPrice(request.getPrice());
 		menuItem.setAvailability(request.getAvailability() != null ? request.getAvailability() : menuItem.isAvailability());
 		return toDto(menuItemRepository.save(menuItem));
@@ -129,6 +131,9 @@ public class MenuService {
 		if (isBlank(request.getDescription())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description is required");
 		}
+		if (isBlank(request.getCategory())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+		}
 		if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) < 0) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is invalid");
 		}
@@ -166,6 +171,7 @@ public class MenuService {
 		dto.setRestaurantId(menuItem.getRestaurant().getRestaurantId());
 		dto.setItemName(menuItem.getItemName());
 		dto.setDescription(menuItem.getDescription());
+		dto.setCategory(menuItem.getCategory());
 		dto.setPrice(menuItem.getPrice());
 		dto.setAvailability(menuItem.isAvailability());
 		return dto;

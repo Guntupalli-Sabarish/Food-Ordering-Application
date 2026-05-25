@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/common/PageHeader";
-import { createMenuItem } from "@/apis";
+import { createMenuItem, deleteMenuItem, updateMenuItem } from "@/apis";
 import { useAdminMenu } from "@/hooks/useAdminMenu";
 import { useAdminRestaurant } from "@/hooks/useAdminRestaurant";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -23,10 +23,13 @@ export const AdminMenuManagementPage = () => {
   const { restaurant } = useAdminRestaurant();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [itemName, setItemName] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!restaurant) {
@@ -37,10 +40,10 @@ export const AdminMenuManagementPage = () => {
       });
       return;
     }
-    if (!itemName || !description || !price) {
+    if (!itemName || !description || !category || !price) {
       toast({
         title: "Missing fields",
-        description: "Provide name, description, and price.",
+        description: "Provide name, description, category, and price.",
         variant: "destructive",
       });
       return;
@@ -62,12 +65,14 @@ export const AdminMenuManagementPage = () => {
         restaurantId: Number(restaurant.id),
         itemName,
         description,
+        category,
         price: parsedPrice,
         availability: true,
       });
       await refresh();
       setItemName("");
       setDescription("");
+      setCategory("");
       setPrice("");
       setOpen(false);
       toast({ title: "Menu item added", description: "Item saved successfully." });
@@ -76,6 +81,72 @@ export const AdminMenuManagementPage = () => {
       toast({ title: "Save failed", description: message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!restaurant || !editingId) {
+      return;
+    }
+    if (!itemName || !description || !category || !price) {
+      toast({
+        title: "Missing fields",
+        description: "Provide name, description, category, and price.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const parsedPrice = Number(price);
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      toast({
+        title: "Invalid price",
+        description: "Price must be a positive number.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateMenuItem(editingId, {
+        restaurantId: Number(restaurant.id),
+        itemName,
+        description,
+        category,
+        price: parsedPrice,
+        availability: true,
+      });
+      await refresh();
+      setEditOpen(false);
+      setEditingId(null);
+      toast({ title: "Menu item updated", description: "Changes saved." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Update failed";
+      toast({ title: "Update failed", description: message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEdit = (item: (typeof items)[number]) => {
+    setEditingId(item.id);
+    setItemName(item.name ?? "");
+    setDescription(item.description ?? "");
+    setCategory(item.category ?? "");
+    setPrice(String(item.price ?? ""));
+    setEditOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this menu item?")) {
+      return;
+    }
+    try {
+      await deleteMenuItem(id);
+      await refresh();
+      toast({ title: "Menu item deleted", description: "Item removed." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Delete failed";
+      toast({ title: "Delete failed", description: message, variant: "destructive" });
     }
   };
 
@@ -108,6 +179,11 @@ export const AdminMenuManagementPage = () => {
                     onChange={(event) => setDescription(event.target.value)}
                   />
                   <Input
+                    placeholder="Category"
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                  />
+                  <Input
                     placeholder="Price"
                     value={price}
                     onChange={(event) => setPrice(event.target.value)}
@@ -127,6 +203,7 @@ export const AdminMenuManagementPage = () => {
             <TableHead>Category</TableHead>
             <TableHead>Price</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -136,10 +213,53 @@ export const AdminMenuManagementPage = () => {
               <TableCell>{item.category}</TableCell>
               <TableCell>₹{item.price}</TableCell>
               <TableCell>Active</TableCell>
+              <TableCell>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => startEdit(item)}>
+                    Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)}>
+                    Delete
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit menu item</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Item name"
+              value={itemName}
+              onChange={(event) => setItemName(event.target.value)}
+            />
+            <Input
+              placeholder="Description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+            <Input
+              placeholder="Category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+            />
+            <Input
+              placeholder="Price"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+            />
+            <Button onClick={handleEdit} disabled={saving}>
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

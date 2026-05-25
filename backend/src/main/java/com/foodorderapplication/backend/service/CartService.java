@@ -139,6 +139,7 @@ public class CartService {
         dto.setRestaurantId(menuItem.getRestaurant().getRestaurantId());
         dto.setItemName(menuItem.getItemName());
         dto.setDescription(menuItem.getDescription());
+        dto.setCategory(menuItem.getCategory());
         dto.setPrice(menuItem.getPrice());
         dto.setAvailability(menuItem.isAvailability());
         return dto;

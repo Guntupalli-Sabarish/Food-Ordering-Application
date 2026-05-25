@@ -160,6 +160,9 @@ public class OrderService {
     public Order updateOrderStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (isTerminalStatus(order.getOrderStatus()) && order.getOrderStatus() != status) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status cannot be changed");
+        }
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
         sendOrderStatusEmail(saved);
@@ -175,6 +178,9 @@ public class OrderService {
                 .getRestaurantId();
         if (!order.getRestaurantId().equals(restaurantId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed for this restaurant");
+        }
+        if (isTerminalStatus(order.getOrderStatus()) && order.getOrderStatus() != status) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status cannot be changed");
         }
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
@@ -216,5 +222,9 @@ public class OrderService {
                     "orderId", String.valueOf(order.getOrderId())));
             notificationService.sendEmail(request);
         });
+    }
+
+    private boolean isTerminalStatus(OrderStatus status) {
+        return status == OrderStatus.DELIVERED || status == OrderStatus.CANCELLED;
     }
 }

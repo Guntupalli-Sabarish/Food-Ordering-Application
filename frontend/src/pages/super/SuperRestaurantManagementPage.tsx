@@ -17,12 +17,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { createRestaurant, deleteRestaurant, getUsers, updateRestaurant } from "@/apis";
 import { useManagedRestaurants } from "@/hooks/useManagedRestaurants";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
+
+const CUISINE_TYPES = [
+  "AMERICAN",
+  "BBQ",
+  "BURGERS",
+  "PIZZA",
+  "STEAKHOUSE",
+  "TEX_MEX",
+  "CANADIAN",
+  "CHINESE",
+  "INDIAN",
+  "JAPANESE",
+  "KOREAN",
+  "THAI",
+  "VIETNAMESE",
+  "ASIAN_FUSION",
+  "SUSHI",
+  "ITALIAN",
+  "FRENCH",
+  "SPANISH",
+  "GREEK",
+  "BRITISH",
+  "GERMAN",
+  "MEXICAN",
+  "BRAZILIAN",
+  "ARGENTINIAN",
+  "CARIBBEAN",
+  "PERUVIAN",
+  "MIDDLE_EASTERN",
+  "MEDITERRANEAN",
+  "LEBANESE",
+  "TURKISH",
+  "ETHIOPIAN",
+  "MOROCCAN",
+  "VEGAN",
+  "VEGETARIAN",
+  "SEAFOOD",
+  "BAKERY",
+  "CAFE",
+  "DESSERT",
+  "FAST_FOOD",
+];
 
 export const SuperRestaurantManagementPage = () => {
   usePageTitle("Restaurant Management");
@@ -32,7 +80,7 @@ export const SuperRestaurantManagementPage = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [cuisine, setCuisine] = useState("");
+  const [cuisines, setCuisines] = useState<string[]>([]);
   const [adminId, setAdminId] = useState("");
   const [active, setActive] = useState("true");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,7 +113,7 @@ export const SuperRestaurantManagementPage = () => {
   );
 
   const handleCreate = async () => {
-    if (!name || !address || !cuisine || !adminId) {
+    if (!name || !address || cuisines.length === 0 || !adminId) {
       toast({
         title: "Missing fields",
         description: "Provide name, address, cuisine, and admin id.",
@@ -87,14 +135,14 @@ export const SuperRestaurantManagementPage = () => {
       await createRestaurant({
         name,
         address,
-        cuisine,
+        cuisine: cuisines.join(", "),
         adminId: parsedAdminId,
         active: active === "true",
       });
       await refresh();
       setName("");
       setAddress("");
-      setCuisine("");
+      setCuisines([]);
       setAdminId("");
       setActive("true");
       setOpen(false);
@@ -111,7 +159,7 @@ export const SuperRestaurantManagementPage = () => {
     if (!editingId) {
       return;
     }
-    if (!name || !address || !cuisine || !adminId) {
+    if (!name || !address || cuisines.length === 0 || !adminId) {
       toast({
         title: "Missing fields",
         description: "Provide name, address, cuisine, and admin id.",
@@ -133,7 +181,7 @@ export const SuperRestaurantManagementPage = () => {
       await updateRestaurant(editingId, {
         name,
         address,
-        cuisine,
+        cuisine: cuisines.join(", "),
         adminId: parsedAdminId,
         active: active === "true",
       });
@@ -153,7 +201,11 @@ export const SuperRestaurantManagementPage = () => {
     setEditingId(restaurant.id);
     setName(restaurant.name ?? "");
     setAddress(restaurant.address ?? "");
-    setCuisine(restaurant.cuisine ?? "");
+    const selected = (restaurant.cuisine ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    setCuisines(selected);
     setAdminId(restaurant.adminId ? String(restaurant.adminId) : "");
     setActive(restaurant.active ? "true" : "false");
     setEditOpen(true);
@@ -172,6 +224,16 @@ export const SuperRestaurantManagementPage = () => {
       toast({ title: "Delete failed", description: message, variant: "destructive" });
     }
   };
+
+  const toggleCuisine = (value: string) => {
+    setCuisines((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  };
+
+  const cuisineLabel = cuisines.length === 0
+    ? "Select cuisines"
+    : `${cuisines.length} selected`;
 
   return (
     <div className="space-y-6">
@@ -201,11 +263,27 @@ export const SuperRestaurantManagementPage = () => {
                   value={address}
                   onChange={(event) => setAddress(event.target.value)}
                 />
-                <Input
-                  placeholder="Cuisine"
-                  value={cuisine}
-                  onChange={(event) => setCuisine(event.target.value)}
-                />
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Cuisine types</label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {cuisineLabel}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto">
+                      {CUISINE_TYPES.map((type) => (
+                        <DropdownMenuCheckboxItem
+                          key={type}
+                          checked={cuisines.includes(type)}
+                          onCheckedChange={() => toggleCuisine(type)}
+                        >
+                          {type.replace(/_/g, " ")}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 <Select value={adminId} onValueChange={setAdminId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Assign admin" />
@@ -293,11 +371,27 @@ export const SuperRestaurantManagementPage = () => {
               value={address}
               onChange={(event) => setAddress(event.target.value)}
             />
-            <Input
-              placeholder="Cuisine"
-              value={cuisine}
-              onChange={(event) => setCuisine(event.target.value)}
-            />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Cuisine types</label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    {cuisineLabel}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="max-h-72 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto">
+                  {CUISINE_TYPES.map((type) => (
+                    <DropdownMenuCheckboxItem
+                      key={type}
+                      checked={cuisines.includes(type)}
+                      onCheckedChange={() => toggleCuisine(type)}
+                    >
+                      {type.replace(/_/g, " ")}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Select value={adminId} onValueChange={setAdminId}>
               <SelectTrigger>
                 <SelectValue placeholder="Assign admin" />

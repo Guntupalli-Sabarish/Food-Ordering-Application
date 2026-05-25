@@ -47,6 +47,7 @@ export const AdminOrderManagementPage = () => {
                 <Select
                   defaultValue={order.status}
                   onValueChange={(value) => handleStatusChange(order.id, value)}
+                  disabled={order.status === "DELIVERED"}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Status" />

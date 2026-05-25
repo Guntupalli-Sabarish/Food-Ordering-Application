@@ -7,6 +7,7 @@ public class MenuItemDTO {
 	private Long restaurantId;
 	private String itemName;
 	private String description;
+	private String category;
 	private BigDecimal price;
 	private Boolean availability;
 
@@ -40,6 +41,14 @@ public class MenuItemDTO {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+	public String getCategory() {
+		return category;
+	}
+
+	public void setCategory(String category) {
+		this.category = category;
 	}
 
 	public BigDecimal getPrice() {

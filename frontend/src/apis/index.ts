@@ -31,6 +31,7 @@ type MenuItemDTO = {
   restaurantId: number;
   itemName: string;
   description: string;
+  category: string;
   price: number;
   availability: boolean;
 };
@@ -205,7 +206,7 @@ const mapMenuItem = (dto: MenuItemDTO): MenuItem => ({
   description: dto.description ?? "",
   price: Number(dto.price ?? 0),
   isVeg: false,
-  category: "Main",
+  category: dto.category ?? "Main",
   image: DEFAULT_MENU_IMAGE,
 });
 
@@ -400,6 +401,7 @@ export const createMenuItem = async (payload: {
   restaurantId: number;
   itemName: string;
   description: string;
+  category: string;
   price: number;
   availability?: boolean;
 }) => {
@@ -408,6 +410,25 @@ export const createMenuItem = async (payload: {
     body: JSON.stringify(payload),
   });
   return mapMenuItem(data);
+};
+
+export const updateMenuItem = async (id: string, payload: {
+  restaurantId: number;
+  itemName: string;
+  description: string;
+  category: string;
+  price: number;
+  availability?: boolean;
+}) => {
+  const data = await apiRequest<MenuItemDTO>(`/api/admin/menu/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return mapMenuItem(data);
+};
+
+export const deleteMenuItem = async (id: string) => {
+  await apiRequest(`/api/admin/menu/${id}`, { method: "DELETE" });
 };
 
 export const getCart = async () => {
