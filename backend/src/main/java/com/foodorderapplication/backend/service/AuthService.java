@@ -9,9 +9,12 @@ import com.foodorderapplication.backend.repository.UserRepository;
 import com.foodorderapplication.backend.security.JwtUtil;
 import com.foodorderapplication.backend.util.EmailRequest;
 import com.foodorderapplication.backend.util.EmailType;
+import com.foodorderapplication.backend.util.SmtpProperties;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,18 +29,23 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final NotificationService notificationService;
+    private final SmtpProperties smtpProperties;
     private final Map<String, String> resetTokens = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.base-url:http://localhost:8080}")
     private String appBaseUrl;
 
+    @Value("${app.frontend.reset-url:http://localhost:5173/reset-password}")
+    private String appFrontendResetUrl;
+
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-            NotificationService notificationService) {
+            NotificationService notificationService, SmtpProperties smtpProperties) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.notificationService = notificationService;
+        this.smtpProperties = smtpProperties;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -61,8 +69,26 @@ public class AuthService {
         user.setVerificationTokenExpiresAt(LocalDateTime.now().plusHours(24));
 
         User savedUser = userRepository.save(user);
-        sendVerificationEmail(savedUser, verificationToken);
-        return toAuthResponse(savedUser, null);
+        Map<String, Object> emailResult = null;
+        try {
+            emailResult = sendVerificationEmail(savedUser, verificationToken);
+        } catch (Exception ex) {
+            // In case the notification layer still throws, catch here to avoid failing registration
+            emailResult = Map.of("status", "FAILED", "error", ex.getMessage());
+        }
+
+        // If emailResult indicates failure or did not report success, set emailVerified true
+        if (emailResult == null || !"SENT".equals(emailResult.get("status"))) {
+            savedUser.setEmailVerified(true);
+            savedUser.setVerificationToken(null);
+            savedUser.setVerificationTokenExpiresAt(null);
+            userRepository.save(savedUser);
+        }
+
+        String token = savedUser.isEmailVerified()
+                ? jwtUtil.generateToken(savedUser.getEmail(), savedUser.getRole().name())
+                : null;
+        return toAuthResponse(savedUser, token);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -84,7 +110,14 @@ public class AuthService {
         }
 
         if (!user.isEmailVerified()) {
+            if (!isSmtpConfigured()) {
+                user.setEmailVerified(true);
+                user.setVerificationToken(null);
+                user.setVerificationTokenExpiresAt(null);
+                user = userRepository.save(user);
+            } else {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email not verified");
+            }
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
@@ -101,19 +134,29 @@ public class AuthService {
         }
 
         String normalizedEmail = normalizeEmail(email);
-        return userRepository
-                .findByEmail(normalizedEmail)
-                .map(
-                        user -> {
-                            String token = generateResetToken();
-                            resetTokens.put(normalizedEmail, token);
-                            return Map.of(
-                                    "message",
-                                    "Password reset token generated",
-                                    "resetToken",
-                                    token);
-                        })
-                .orElseGet(() -> Map.of("message", "Password reset token generated"));
+        userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
+            String token = generateResetToken();
+            resetTokens.put(normalizedEmail, token);
+
+            String resetLink = appFrontendResetUrl
+                    + "?email=" + encodeQueryValue(normalizedEmail)
+                    + "&token=" + encodeQueryValue(token);
+
+            EmailRequest request = new EmailRequest();
+            request.setTo(user.getEmail());
+            request.setType(EmailType.PASSWORD_RESET);
+            request.setContext(Map.of(
+                    "name", user.getName() == null ? "Customer" : user.getName(),
+                    "resetLink", resetLink));
+
+            try {
+                notificationService.sendEmail(request);
+            } catch (Exception ex) {
+                // Keep the flow usable locally even if SMTP is not available.
+            }
+        });
+
+        return Map.of("message", "If the email exists, a password reset link has been sent");
     }
 
     public Map<String, String> resetPassword(String email, String token, String newPassword) {
@@ -230,6 +273,18 @@ public class AuthService {
         return email.trim().toLowerCase();
     }
 
+    private boolean isSmtpConfigured() {
+        return smtpProperties != null
+                && smtpProperties.getHost() != null
+                && !smtpProperties.getHost().isBlank()
+                && smtpProperties.getUsername() != null
+                && !smtpProperties.getUsername().isBlank()
+                && smtpProperties.getPassword() != null
+                && !smtpProperties.getPassword().isBlank()
+                && smtpProperties.getFrom() != null
+                && !smtpProperties.getFrom().isBlank();
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
@@ -240,9 +295,13 @@ public class AuthService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private void sendVerificationEmail(User user, String token) {
+    private String encodeQueryValue(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private java.util.Map<String, Object> sendVerificationEmail(User user, String token) {
         if (user == null || isBlank(user.getEmail()) || isBlank(token)) {
-            return;
+            return java.util.Collections.emptyMap();
         }
 
         String verificationLink = appBaseUrl + "/api/auth/verify-email?token=" + token;
@@ -253,6 +312,6 @@ public class AuthService {
         request.setContext(Map.of(
                 "name", user.getName() == null ? "Customer" : user.getName(),
                 "verificationLink", verificationLink));
-        notificationService.sendEmail(request);
+        return notificationService.sendEmail(request);
     }
 }

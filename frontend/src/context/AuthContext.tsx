@@ -19,7 +19,7 @@ interface AuthContextValue {
     email: string,
     password: string,
     role?: Role
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -110,14 +110,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       password: string,
       role: Role = "CUSTOMER"
     ) => {
-      await apiRegister(name, email, password, role);
+      const response = await apiRegister(name, email, password, role);
+      if (response.token) {
+        persist(response.user, response.token);
+        toast({
+          title: "Account created",
+          description: "You are signed in now.",
+        });
+        return true;
+      }
+
       clearAuth();
       toast({
         title: "Verify your email",
         description: "We sent a verification link to your inbox.",
       });
+      return false;
     },
-    [clearAuth, toast]
+    [clearAuth, persist, toast]
   );
 
   const logout = useCallback(() => {

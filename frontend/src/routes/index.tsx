@@ -8,6 +8,7 @@ import { SuperAdminLayout } from "@/layouts/SuperAdminLayout";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
 import { HomePage } from "@/pages/customer/HomePage";
 import { RestaurantsPage } from "@/pages/customer/RestaurantsPage";
 import { MenuPage } from "@/pages/customer/MenuPage";
@@ -31,6 +32,7 @@ export const AppRoutes = () => (
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
     </Route>
 
     <Route element={<ProtectedRoute />}>
