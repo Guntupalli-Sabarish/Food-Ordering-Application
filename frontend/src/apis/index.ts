@@ -555,7 +555,7 @@ export const sendEmailNotification = async (payload: {
 
 export const getAdminMetrics = async (): Promise<DashboardMetric[]> => {
   const [revenue, orders] = await Promise.all([
-    apiRequest<{ total: number }>("/api/admin/analytics/revenue"),
+            unwrapApiResponse<{ total: number }>("/api/admin/analytics/revenue"),
     apiRequest<OrderDTO[]>("/api/admin/orders"),
   ]);
 
@@ -568,7 +568,7 @@ export const getAdminMetrics = async (): Promise<DashboardMetric[]> => {
 
 export const getSalesSeries = async (): Promise<ChartPoint[]> => {
   try {
-    const data = await apiRequest<{ daily?: Array<{ date: string; amount: number }> }>(
+    const data = await unwrapApiResponse<{ daily?: Array<{ date: string; amount: number }> }>(
       "/api/superadmin/analytics/revenue"
     );
     if (data.daily?.length) {
@@ -580,7 +580,7 @@ export const getSalesSeries = async (): Promise<ChartPoint[]> => {
     }
   }
 
-  const adminRevenue = await apiRequest<{ total: number }>(
+  const adminRevenue = await unwrapApiResponse<{ total: number }>(
     "/api/admin/analytics/revenue"
   );
   return [{ name: "total", value: adminRevenue.total ?? 0 }];
@@ -588,7 +588,7 @@ export const getSalesSeries = async (): Promise<ChartPoint[]> => {
 
 export const getOrderVolumeSeries = async (): Promise<ChartPoint[]> => {
   try {
-    const data = await apiRequest<{ completed: number; pending: number; cancelled: number }>(
+    const data = await unwrapApiResponse<{ completed: number; pending: number; cancelled: number }>(
       "/api/superadmin/analytics/orders"
     );
     return [
@@ -612,7 +612,7 @@ export const getOrderVolumeSeries = async (): Promise<ChartPoint[]> => {
 
 export const getCategoryDistribution = async (): Promise<ChartPoint[]> => {
   try {
-    const data = await apiRequest<{ items: Array<{ name: string; orders: number }> }>(
+    const data = await unwrapApiResponse<{ items: Array<{ name: string; orders: number }> }>(
       "/api/admin/analytics/top-items"
     );
     return data.items.map((item) => ({ name: item.name, value: item.orders }));
@@ -622,7 +622,7 @@ export const getCategoryDistribution = async (): Promise<ChartPoint[]> => {
 };
 
 export const getPlatformMetrics = async (): Promise<DashboardMetric[]> => {
-  const data = await apiRequest<{
+  const data = await unwrapApiResponse<{
     totalRevenue: number;
     totalOrders: number;
     totalUsers: number;

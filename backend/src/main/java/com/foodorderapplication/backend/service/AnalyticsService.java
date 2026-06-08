@@ -22,21 +22,34 @@ public class AnalyticsService {
         return data;
     }
 
-    public Map<String, Object> getSuperAdminRevenue() {
-        Map<String, Object> data = new HashMap<>();
-        data.put("currency", "USD");
-        data.put("period", "last_30_days");
-        data.put("total", 45210.25);
-        data.put("daily", List.of(
-                Map.of("date", "2026-05-21", "amount", 1480.50),
-                Map.of("date", "2026-05-22", "amount", 1625.75),
-                Map.of("date", "2026-05-23", "amount", 1710.00),
-                Map.of("date", "2026-05-24", "amount", 1832.10),
-                Map.of("date", "2026-05-25", "amount", 1905.40)
-        ));
-        data.put("dataSource", "mock");
-        return data;
-    }
+public Map<String, Object> getSuperAdminRevenue() {
+    Map<String, Object> data = new HashMap<>();
+
+    data.put("currency", "USD");
+    data.put("period", "last_14_days");
+    data.put("total", 45210.25);
+
+    data.put("daily", List.of(
+            Map.of("date", "2026-05-12", "amount", 1245.80),
+            Map.of("date", "2026-05-13", "amount", 1380.20),
+            Map.of("date", "2026-05-14", "amount", 1422.50),
+            Map.of("date", "2026-05-15", "amount", 1508.90),
+            Map.of("date", "2026-05-16", "amount", 1575.40),
+            Map.of("date", "2026-05-17", "amount", 1460.75),
+            Map.of("date", "2026-05-18", "amount", 1652.30),
+            Map.of("date", "2026-05-19", "amount", 1715.85),
+            Map.of("date", "2026-05-20", "amount", 1398.60),
+            Map.of("date", "2026-05-21", "amount", 1480.50),
+            Map.of("date", "2026-05-22", "amount", 1625.75),
+            Map.of("date", "2026-05-23", "amount", 1710.00),
+            Map.of("date", "2026-05-24", "amount", 1832.10),
+            Map.of("date", "2026-05-25", "amount", 1905.40)
+    ));
+
+    data.put("dataSource", "mock");
+
+    return data;
+}
 
     public Map<String, Object> getSuperAdminUsers() {
         Map<String, Object> data = new HashMap<>();
