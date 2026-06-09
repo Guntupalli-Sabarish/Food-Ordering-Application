@@ -30,7 +30,6 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final NotificationService notificationService;
     private final SmtpProperties smtpProperties;
-    private final Map<String, String> resetTokens = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.base-url:http://localhost:8080}")
@@ -136,11 +135,14 @@ public class AuthService {
         String normalizedEmail = normalizeEmail(email);
         userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
             String token = generateResetToken();
-            resetTokens.put(normalizedEmail, token);
+            user.setResetToken(token);
+            user.setResetTokenExpiresAt(LocalDateTime.now().plusHours(1));
+            userRepository.save(user);
 
             String resetLink = appFrontendResetUrl
                     + "?email=" + encodeQueryValue(normalizedEmail)
                     + "&token=" + encodeQueryValue(token);
+            System.out.println("RESET PASSWORD LINK: " + resetLink);
 
             EmailRequest request = new EmailRequest();
             request.setTo(user.getEmail());
@@ -166,21 +168,21 @@ public class AuthService {
         }
 
         String normalizedEmail = normalizeEmail(email);
-        String expectedToken = resetTokens.get(normalizedEmail);
-        if (expectedToken == null || !expectedToken.equals(token)) {
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        if (user.getResetToken() == null || !user.getResetToken().equals(token)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reset token");
         }
 
-        User user =
-                userRepository
-                        .findByEmail(normalizedEmail)
-                        .orElseThrow(
-                                () ->
-                                        new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "User not found"));
+        if (user.getResetTokenExpiresAt() == null || user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reset token expired");
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        user.setResetTokenExpiresAt(null);
         userRepository.save(user);
-        resetTokens.remove(normalizedEmail);
 
         return Map.of("message", "Password reset successfully");
     }

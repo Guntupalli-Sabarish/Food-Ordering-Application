@@ -42,6 +42,12 @@ public class User {
 	@Column(name = "verification_token_expires_at")
 	private LocalDateTime verificationTokenExpiresAt;
 
+	@Column(name = "reset_token")
+	private String resetToken;
+
+	@Column(name = "reset_token_expires_at")
+	private LocalDateTime resetTokenExpiresAt;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
@@ -120,6 +126,22 @@ public class User {
 
 	public void setVerificationTokenExpiresAt(LocalDateTime verificationTokenExpiresAt) {
 		this.verificationTokenExpiresAt = verificationTokenExpiresAt;
+	}
+
+	public String getResetToken() {
+		return resetToken;
+	}
+
+	public void setResetToken(String resetToken) {
+		this.resetToken = resetToken;
+	}
+
+	public LocalDateTime getResetTokenExpiresAt() {
+		return resetTokenExpiresAt;
+	}
+
+	public void setResetTokenExpiresAt(LocalDateTime resetTokenExpiresAt) {
+		this.resetTokenExpiresAt = resetTokenExpiresAt;
 	}
 
 	public LocalDateTime getCreatedAt() {

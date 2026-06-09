@@ -77,6 +77,18 @@ public class SecurityConfig {
         }
 
         @Bean
+        public org.springframework.boot.CommandLineRunner passwordMigrator(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+                return args -> {
+                        userRepository.findAll().forEach(user -> {
+                                if (!user.getPassword().startsWith("$2a$")) {
+                                        user.setPassword(passwordEncoder.encode(user.getPassword()));
+                                        userRepository.save(user);
+                                }
+                        });
+                };
+        }
+
+        @Bean
         public UserDetailsService userDetailsService(UserRepository userRepository) {
                 return username -> {
                         User user = userRepository
