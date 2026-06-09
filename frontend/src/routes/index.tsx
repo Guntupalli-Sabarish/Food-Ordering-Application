@@ -36,32 +36,37 @@ export const AppRoutes = () => (
     </Route>
 
     <Route element={<ProtectedRoute />}>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/restaurants" element={<RestaurantsPage />} />
-        <Route path="/restaurants/:id" element={<MenuPage />} />
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders" element={<OrderHistoryPage />} />
-        <Route path="/orders/:id/track" element={<OrderTrackingPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+      <Route element={<RoleRoute allow={["CUSTOMER"]} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/restaurants" element={<RestaurantsPage />} />
+          <Route path="/restaurants/:id" element={<MenuPage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrderHistoryPage />} />
+          <Route path="/orders/:id/track" element={<OrderTrackingPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
       </Route>
 
-      <Route element={<RoleRoute allow={["ADMIN", "SUPER_ADMIN"]} />}>
+      <Route element={<RoleRoute allow={["ADMIN"]} />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/menu" element={<AdminMenuManagementPage />} />
           <Route path="/admin/orders" element={<AdminOrderManagementPage />} />
           <Route path="/admin/reports" element={<AdminSalesReportsPage />} />
+          <Route path="/admin/profile" element={<ProfilePage />} />
         </Route>
       </Route>
 
       <Route element={<RoleRoute allow={["SUPER_ADMIN"]} />}>
         <Route element={<SuperAdminLayout />}>
-          <Route path="/super" element={<SuperAnalyticsPage />} />
-          <Route path="/super/restaurants" element={<SuperRestaurantManagementPage />} />
-          <Route path="/super/users" element={<SuperUserManagementPage />} />
-          <Route path="/super/monitoring" element={<SuperMonitoringPage />} />
+          <Route path="/superadmin" element={<SuperAnalyticsPage />} />
+          <Route path="/superadmin/analytics" element={<SuperAnalyticsPage />} />
+          <Route path="/superadmin/restaurants" element={<SuperRestaurantManagementPage />} />
+          <Route path="/superadmin/users" element={<SuperUserManagementPage />} />
+          <Route path="/superadmin/monitoring" element={<SuperMonitoringPage />} />
+          <Route path="/superadmin/profile" element={<ProfilePage />} />
         </Route>
       </Route>
     </Route>

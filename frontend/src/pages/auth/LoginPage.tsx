@@ -40,8 +40,14 @@ export const LoginPage = () => {
     }
     try {
       setLoading(true);
-      await login(email, password);
-      navigate("/");
+      const user = await login(email, password);
+      if (user.role === "ADMIN") {
+        navigate("/admin");
+      } else if (user.role === "SUPER_ADMIN") {
+        navigate("/superadmin");
+      } else {
+        navigate("/");
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
       toast({ title: "Login failed", description: message, variant: "destructive" });

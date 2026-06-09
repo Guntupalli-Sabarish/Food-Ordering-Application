@@ -48,6 +48,9 @@ public class SecurityConfig {
                                                                 "/swagger-resources/**",
                                                                 "/webjars/**")
                                                                 .permitAll()
+                                                                .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+                                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                                                                .requestMatchers("/api/superadmin/**").hasRole("SUPER_ADMIN")
                                                                 .anyRequest()
                                                                 .authenticated())
                                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

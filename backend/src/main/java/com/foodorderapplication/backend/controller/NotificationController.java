@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
-@RequestMapping("/api/notifications")
+@RequestMapping("/api/admin/notifications")
 public class NotificationController {
     private static final Logger logger = LoggerFactory.getLogger(NotificationController.class);
 
@@ -28,7 +28,7 @@ public class NotificationController {
     }
 
     @PostMapping("/send-email")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse> sendEmail(@RequestBody EmailRequest request, HttpServletRequest httpRequest) {
         logger.info("Send email request received by user with role {} or {}", UserRole.ADMIN, UserRole.SUPER_ADMIN);
         ApiResponse response = ApiResponse.ok(

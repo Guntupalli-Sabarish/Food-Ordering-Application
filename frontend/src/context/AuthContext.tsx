@@ -13,7 +13,7 @@ interface AuthContextValue {
   user: User | null;
   token: string | null;
   ready: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (
     name: string,
     email: string,
@@ -99,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       persist(response.user, response.token);
       setReady(true);
       toast({ title: "Welcome back!", description: "Login successful." });
+      return response.user;
     },
     [persist, toast]
   );

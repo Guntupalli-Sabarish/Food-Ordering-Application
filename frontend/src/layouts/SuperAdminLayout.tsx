@@ -7,10 +7,10 @@ export const SuperAdminLayout = () => (
       title="Super Admin"
       subtitle="Platform-wide analytics and governance."
       navItems={[
-        { label: "Analytics", href: "/super" },
-        { label: "Restaurants", href: "/super/restaurants" },
-        { label: "Users", href: "/super/users" },
-        { label: "Monitoring", href: "/super/monitoring" },
+        { label: "Analytics", href: "/superadmin" },
+        { label: "Restaurants", href: "/superadmin/restaurants" },
+        { label: "Users", href: "/superadmin/users" },
+        { label: "Monitoring", href: "/superadmin/monitoring" },
       ]}
     />
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8">

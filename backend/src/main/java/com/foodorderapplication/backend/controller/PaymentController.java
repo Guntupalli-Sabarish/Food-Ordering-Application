@@ -21,7 +21,7 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    @PostMapping("/api/payments/initiate")
+    @PostMapping("/api/customer/payments/initiate")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Payment> initiate(Authentication authentication, @RequestBody Map<String, Object> body) {
         Long orderId = ((Number) body.get("orderId")).longValue();
@@ -31,7 +31,7 @@ public class PaymentController {
         return ResponseEntity.ok(p);
     }
 
-    @PostMapping("/api/payments/verify")
+    @PostMapping("/api/customer/payments/verify")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Payment> verify(Authentication authentication, @RequestBody Map<String, Object> body) {
         Long paymentId = ((Number) body.get("paymentId")).longValue();
@@ -40,7 +40,7 @@ public class PaymentController {
         return ResponseEntity.ok(p);
     }
 
-    @GetMapping("/api/payments/{orderId}")
+    @GetMapping("/api/customer/payments/{orderId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<List<Payment>> getByOrder(Authentication authentication, @PathVariable Long orderId) {
         return ResponseEntity.ok(paymentService.getPaymentsForOrder(authentication.getName(), orderId));

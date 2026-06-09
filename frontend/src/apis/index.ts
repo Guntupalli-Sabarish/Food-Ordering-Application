@@ -525,21 +525,21 @@ export const updateOrderStatus = async (id: string, status: string) => {
 };
 
 export const initiatePayment = async (orderId: number, method: string) => {
-  return apiRequest<PaymentDTO>("/api/payments/initiate", {
+  return apiRequest<PaymentDTO>("/api/customer/payments/initiate", {
     method: "POST",
     body: JSON.stringify({ orderId, method }),
   });
 };
 
 export const verifyPayment = async (paymentId: number, success: boolean) => {
-  return apiRequest<PaymentDTO>("/api/payments/verify", {
+  return apiRequest<PaymentDTO>("/api/customer/payments/verify", {
     method: "POST",
     body: JSON.stringify({ paymentId, success }),
   });
 };
 
 export const getPaymentsByOrder = async (orderId: number) => {
-  return apiRequest<PaymentDTO[]>(`/api/payments/${orderId}`);
+  return apiRequest<PaymentDTO[]>(`/api/customer/payments/${orderId}`);
 };
 
 export const sendEmailNotification = async (payload: {
@@ -547,7 +547,7 @@ export const sendEmailNotification = async (payload: {
   subject: string;
   body: string;
 }) => {
-  return unwrapApiResponse("/api/notifications/send-email", {
+  return unwrapApiResponse("/api/admin/notifications/send-email", {
     method: "POST",
     body: JSON.stringify(payload),
   });

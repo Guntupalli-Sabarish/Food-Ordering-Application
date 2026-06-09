@@ -53,7 +53,7 @@ export const AppHeader = () => {
           </NavLink>
           {user?.role !== "CUSTOMER" && (
             <NavLink
-              to={user?.role === "SUPER_ADMIN" ? "/super" : "/admin"}
+              to={user?.role === "SUPER_ADMIN" ? "/superadmin" : "/admin"}
               className="hidden text-sm font-medium text-muted-foreground md:block"
             >
               <LayoutDashboard className="mr-1 inline h-4 w-4" />
