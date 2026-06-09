@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, CreditCard, ArrowLeft, Loader2, CheckCircle } from "lucide-react";
+import { MapPin, CreditCard, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -85,7 +85,7 @@ export const CheckoutPage = () => {
         });
         
         // Initiate payment record on backend
-        const payment = await initiatePayment(order.id, paymentMethod);
+        const payment = await initiatePayment(Number(order.id), paymentMethod);
         
         // Simulate payment completion
         await new Promise((resolve) => setTimeout(resolve, 1500));

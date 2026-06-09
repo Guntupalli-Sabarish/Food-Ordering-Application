@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { getProfile, login as apiLogin, logout as apiLogout, register as apiRegister } from "@/apis";
-import type { Role, User } from "@/types";
+import type { User } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextValue {

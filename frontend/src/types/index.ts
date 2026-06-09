@@ -14,7 +14,7 @@ export interface Restaurant {
   cuisine: string;
   rating: number;
   etaMinutes: number;
-  priceLevel: "$" | "$$" | "$$$";
+  priceLevel: "$" | "$$" | "$$$" | "₹" | "₹₹" | "₹₹₹" | string;
   image: string;
   tags: string[];
   adminId?: number;
@@ -51,6 +51,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  deliveryAddress?: string;
 }
 
 export interface DashboardMetric {

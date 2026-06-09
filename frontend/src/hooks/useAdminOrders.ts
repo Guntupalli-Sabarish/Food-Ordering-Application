@@ -18,11 +18,7 @@ export const useAdminOrders = () => {
   }, []);
 
   useEffect(() => {
-    let active = true;
     loadOrders();
-    return () => {
-      active = false;
-    };
   }, [loadOrders]);
 
   return { orders, loading, setOrders, refresh: loadOrders };

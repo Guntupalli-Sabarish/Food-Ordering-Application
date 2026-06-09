@@ -18,11 +18,7 @@ export const useAdminMenu = () => {
   }, []);
 
   useEffect(() => {
-    let active = true;
     loadItems();
-    return () => {
-      active = false;
-    };
   }, [loadItems]);
 
   return { items, loading, refresh: loadItems };
