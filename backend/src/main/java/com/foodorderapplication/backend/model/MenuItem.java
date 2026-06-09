@@ -25,7 +25,7 @@ public class MenuItem {
 	@Column(name = "item_name", nullable = false)
 	private String itemName;
 
-	@Column(nullable = false)
+	@Column(nullable = false, columnDefinition = "TEXT")
 	private String description;
 
 	@Column(nullable = false)

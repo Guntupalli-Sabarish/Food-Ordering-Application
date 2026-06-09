@@ -8,7 +8,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
-	Optional<Restaurant> findByAdminId(Long adminId);
+	Optional<Restaurant> findFirstByAdminId(Long adminId);
+
+	default Optional<Restaurant> findByAdminId(Long adminId) {
+		return findFirstByAdminId(adminId);
+	}
 
 	@Query("select r from Restaurant r "
 			+ "where (:name is null or lower(r.name) like lower(concat('%', :name, '%'))) "

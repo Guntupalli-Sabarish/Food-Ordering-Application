@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,8 @@ export const ResetPasswordPage = () => {
   const [token, setToken] = useState(searchParams.get("token") ?? "");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -74,18 +77,36 @@ export const ResetPasswordPage = () => {
               value={token}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setToken(event.target.value)}
             />
-            <Input
-              type="password"
-              placeholder="New password"
-              value={newPassword}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setNewPassword(event.target.value)}
-            />
-            <Input
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setConfirmPassword(event.target.value)}
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="New password"
+                value={newPassword}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setNewPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-2.5 text-muted-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="relative">
+              <Input
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm new password"
+                value={confirmPassword}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setConfirmPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                className="absolute right-3 top-2.5 text-muted-foreground"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Updating..." : "Update password"}
             </Button>

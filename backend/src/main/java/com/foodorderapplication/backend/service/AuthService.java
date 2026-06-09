@@ -182,6 +182,9 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setResetToken(null);
         user.setResetTokenExpiresAt(null);
+        user.setEmailVerified(true);
+        user.setVerificationToken(null);
+        user.setVerificationTokenExpiresAt(null);
         userRepository.save(user);
 
         return Map.of("message", "Password reset successfully");

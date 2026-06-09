@@ -36,7 +36,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!user || user.role !== "CUSTOMER") {
       setCartItems([]);
       return;
     }
