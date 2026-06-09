@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { ShoppingBag, User, LogOut, Search, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { ShoppingBag, User, LogOut, Search, LayoutDashboard, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,14 +12,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
-import { useTheme } from "@/context/ThemeProvider";
+import { useTheme, type ThemeMode } from "@/context/ThemeProvider";
 import { Logo } from "@/components/common/Logo";
 import { useState } from "react";
+
+const themeOptions: { mode: ThemeMode; label: string; icon: typeof Sun }[] = [
+  { mode: "light", label: "Light", icon: Sun },
+  { mode: "dark", label: "Dark", icon: Moon },
+  { mode: "system", label: "System", icon: Monitor },
+];
 
 export const AppHeader = () => {
   const { user, logout } = useAuth();
   const { cartItems } = useCart();
-  const { theme, toggleTheme } = useTheme();
+  const { mode, setMode } = useTheme();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -30,6 +36,8 @@ export const AppHeader = () => {
       setSearchQuery("");
     }
   };
+
+  const ThemeIcon = mode === "dark" ? Moon : mode === "light" ? Sun : Monitor;
 
   return (
     <header className="sticky top-0 z-30 glass-surface border-b border-white/40 dark:border-white/10">
@@ -91,21 +99,41 @@ export const AppHeader = () => {
             )}
           </div>
 
-          {/* Theme toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-full text-muted-foreground hover:text-foreground"
-            aria-label="Toggle theme"
-            id="theme-toggle-btn"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4 transition-transform rotate-0 scale-100" />
-            ) : (
-              <Moon className="h-4 w-4 transition-transform rotate-0 scale-100" />
-            )}
-          </Button>
+          {/* Theme mode selector dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full text-muted-foreground hover:text-foreground"
+                aria-label="Select theme"
+                id="theme-toggle-btn"
+              >
+                <ThemeIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                Appearance
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {themeOptions.map(({ mode: m, label, icon: Icon }) => (
+                <DropdownMenuItem
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`flex items-center gap-2 cursor-pointer ${
+                    mode === m ? "text-brand-600 dark:text-brand-400 font-semibold" : ""
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                  {mode === m && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand-500" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Cart */}
           <Link to="/cart" className="relative" aria-label="Shopping cart">

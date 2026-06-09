@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ChangeEvent } from "react";
-import { User, Mail, Shield, Sun, Moon, Bell, ChevronRight, Camera } from "lucide-react";
+import { User, Mail, Shield, Sun, Moon, Monitor, Bell, ChevronRight, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -15,7 +15,7 @@ export const ProfilePage = () => {
   const { user } = useAuth();
   const { profile, loading, save } = useProfile(user?.email);
   const { toast } = useToast();
-  const { theme, toggleTheme } = useTheme();
+  const { mode, setMode } = useTheme();
   const [name, setName] = useState(user?.name ?? "");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("account");
@@ -128,37 +128,34 @@ export const ProfilePage = () => {
         <div className="rounded-2xl border border-border bg-card p-6 space-y-2 card-elevated animate-fade-in">
           <h2 className="font-bold text-foreground mb-4">Preferences</h2>
 
-          {/* Theme toggle */}
-          <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-4 py-3.5">
-            <div className="flex items-center gap-3">
-              {theme === "dark" ? (
-                <Moon className="h-5 w-5 text-brand-500" />
-              ) : (
-                <Sun className="h-5 w-5 text-brand-500" />
-              )}
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  {theme === "dark" ? "Dark mode" : "Light mode"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Switch to {theme === "dark" ? "light" : "dark"} theme
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={toggleTheme}
-              className={`relative h-6 w-11 rounded-full transition-colors duration-300 ${
-                theme === "dark" ? "bg-brand-500" : "bg-border"
-              }`}
-              aria-label="Toggle theme"
-              id="profile-theme-toggle"
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                  theme === "dark" ? "translate-x-5" : "translate-x-0.5"
+          {/* Theme options */}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1 mb-2">Theme</p>
+            {([
+              { m: "light" as const, label: "Light", icon: Sun, desc: "Classic bright interface" },
+              { m: "dark" as const, label: "Dark", icon: Moon, desc: "Easy on the eyes at night" },
+              { m: "system" as const, label: "System", icon: Monitor, desc: "Follows your device setting" },
+            ]).map(({ m, label, icon: Icon, desc }) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 transition-all ${
+                  mode === m
+                    ? "border-brand-500/40 bg-brand-500/10 text-brand-600 dark:text-brand-400"
+                    : "border-border bg-secondary/30 text-foreground hover:bg-secondary"
                 }`}
-              />
-            </button>
+                aria-label={`Set ${label} theme`}
+              >
+                <Icon className={`h-5 w-5 ${mode === m ? "text-brand-500" : "text-muted-foreground"}`} />
+                <div className="text-left flex-1">
+                  <p className="text-sm font-semibold">{label}</p>
+                  <p className="text-xs text-muted-foreground">{desc}</p>
+                </div>
+                {mode === m && (
+                  <span className="h-2 w-2 rounded-full bg-brand-500 shrink-0" />
+                )}
+              </button>
+            ))}
           </div>
 
           {/* Notifications */}

@@ -8,6 +8,7 @@ import type {
   Role,
   User,
 } from "@/types";
+import { getRestaurantImage, getMenuItemImage } from "@/utils/images";
 
 type ApiResponse<T> = {
   success: boolean;
@@ -92,8 +93,6 @@ type PaymentDTO = {
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
-const DEFAULT_RESTAURANT_IMAGE =
-  "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80";
 const DEFAULT_MENU_IMAGE =
   "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 
@@ -205,7 +204,7 @@ const mapRestaurant = (dto: RestaurantDTO): Restaurant => ({
   rating: 4.5,
   etaMinutes: 30,
   priceLevel: "$$",
-  image: DEFAULT_RESTAURANT_IMAGE,
+  image: getRestaurantImage(String(dto.restaurantId ?? ""), dto.name ?? "", dto.cuisine ?? ""),
   tags: dto.active ? ["Open"] : ["Closed"],
   adminId: dto.adminId,
   active: dto.active,
@@ -219,7 +218,7 @@ const mapMenuItem = (dto: MenuItemDTO): MenuItem => ({
   price: Number(dto.price ?? 0),
   isVeg: false,
   category: dto.category ?? "Main",
-  image: DEFAULT_MENU_IMAGE,
+  image: getMenuItemImage(String(dto.menuItemId ?? ""), dto.itemName ?? "", dto.category ?? ""),
 });
 
 const mapUser = (dto: UserDTO): User => ({

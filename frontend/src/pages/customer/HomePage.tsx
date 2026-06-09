@@ -168,10 +168,10 @@ export const HomePage = () => {
             View all <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {loading
-            ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-            : data.slice(0, 4).map((restaurant) => (
+            ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+            : data.slice(0, 6).map((restaurant) => (
                 <RestaurantCard key={restaurant.id} restaurant={restaurant} />
               ))}
         </div>
