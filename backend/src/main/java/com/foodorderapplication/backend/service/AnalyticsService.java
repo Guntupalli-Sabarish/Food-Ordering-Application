@@ -1,96 +1,140 @@
 package com.foodorderapplication.backend.service;
 
-import org.springframework.stereotype.Service;
-
+import com.foodorderapplication.backend.model.enums.OrderStatus;
+import com.foodorderapplication.backend.repository.OrderItemRepository;
+import com.foodorderapplication.backend.repository.OrderRepository;
+import com.foodorderapplication.backend.repository.RestaurantRepository;
+import com.foodorderapplication.backend.repository.UserRepository;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class AnalyticsService {
 
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final UserRepository userRepository;
+    private final RestaurantRepository restaurantRepository;
+
+    public AnalyticsService(OrderRepository orderRepository, OrderItemRepository orderItemRepository,
+            UserRepository userRepository, RestaurantRepository restaurantRepository) {
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.userRepository = userRepository;
+        this.restaurantRepository = restaurantRepository;
+    }
+
     public Map<String, Object> getSuperAdminOverview() {
+        long totalOrders = orderRepository.count();
+        long cancelledOrders = orderRepository.countByOrderStatus(OrderStatus.CANCELLED);
+        long deliveredOrders = orderRepository.countByOrderStatus(OrderStatus.DELIVERED);
+        long totalUsers = userRepository.count();
+
+        BigDecimal totalRevenue = orderRepository.sumTotalAmountByStatus(OrderStatus.DELIVERED);
+        if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
+
         Map<String, Object> data = new HashMap<>();
         data.put("timestamp", Instant.now().toString());
-        data.put("totalRevenue", 125430.75);
-        data.put("totalOrders", 4821);
-        data.put("totalUsers", 1934);
-        data.put("activeUsers", 862);
-        data.put("cancelledOrders", 124);
-        data.put("dataSource", "mock");
+        data.put("totalRevenue", totalRevenue);
+        data.put("totalOrders", totalOrders);
+        data.put("totalUsers", totalUsers);
+        data.put("activeUsers", totalUsers); // Active = all registered users for now
+        data.put("cancelledOrders", cancelledOrders);
+        data.put("deliveredOrders", deliveredOrders);
         return data;
     }
 
-public Map<String, Object> getSuperAdminRevenue() {
-    Map<String, Object> data = new HashMap<>();
+    public Map<String, Object> getSuperAdminRevenue() {
+        BigDecimal totalRevenue = orderRepository.sumTotalAmountByStatus(OrderStatus.DELIVERED);
+        if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
 
-    data.put("currency", "USD");
-    data.put("period", "last_14_days");
-    data.put("total", 45210.25);
-
-    data.put("daily", List.of(
-            Map.of("date", "2026-05-12", "amount", 1245.80),
-            Map.of("date", "2026-05-13", "amount", 1380.20),
-            Map.of("date", "2026-05-14", "amount", 1422.50),
-            Map.of("date", "2026-05-15", "amount", 1508.90),
-            Map.of("date", "2026-05-16", "amount", 1575.40),
-            Map.of("date", "2026-05-17", "amount", 1460.75),
-            Map.of("date", "2026-05-18", "amount", 1652.30),
-            Map.of("date", "2026-05-19", "amount", 1715.85),
-            Map.of("date", "2026-05-20", "amount", 1398.60),
-            Map.of("date", "2026-05-21", "amount", 1480.50),
-            Map.of("date", "2026-05-22", "amount", 1625.75),
-            Map.of("date", "2026-05-23", "amount", 1710.00),
-            Map.of("date", "2026-05-24", "amount", 1832.10),
-            Map.of("date", "2026-05-25", "amount", 1905.40)
-    ));
-
-    data.put("dataSource", "mock");
-
-    return data;
-}
+        Map<String, Object> data = new HashMap<>();
+        data.put("currency", "INR");
+        data.put("period", "all_time");
+        data.put("total", totalRevenue);
+        // Daily breakdown requires a time-series query; provide summary for now
+        data.put("daily", List.of());
+        return data;
+    }
 
     public Map<String, Object> getSuperAdminUsers() {
+        long total = userRepository.count();
         Map<String, Object> data = new HashMap<>();
-        data.put("newUsers", 124);
-        data.put("returningUsers", 532);
-        data.put("topRegions", List.of(
-                Map.of("region", "North", "users", 210),
-                Map.of("region", "West", "users", 180),
-                Map.of("region", "South", "users", 142)
-        ));
-        data.put("dataSource", "mock");
+        data.put("total", total);
+        data.put("topRegions", List.of()); // Region data not tracked yet
         return data;
     }
 
     public Map<String, Object> getSuperAdminOrders() {
+        long totalOrders = orderRepository.count();
+        long delivered = orderRepository.countByOrderStatus(OrderStatus.DELIVERED);
+        long pending = orderRepository.countByOrderStatus(OrderStatus.PENDING);
+        long cancelled = orderRepository.countByOrderStatus(OrderStatus.CANCELLED);
+        long pendingPayment = orderRepository.countByOrderStatus(OrderStatus.PENDING_PAYMENT);
+
         Map<String, Object> data = new HashMap<>();
-        data.put("totalOrders", 4821);
-        data.put("completed", 4512);
-        data.put("pending", 185);
-        data.put("cancelled", 124);
-        data.put("dataSource", "mock");
+        data.put("totalOrders", totalOrders);
+        data.put("completed", delivered);
+        data.put("pending", pending + pendingPayment);
+        data.put("cancelled", cancelled);
         return data;
     }
 
-    public Map<String, Object> getAdminRevenue() {
+    /**
+     * Revenue analytics scoped to the authenticated admin's own restaurant.
+     */
+    public Map<String, Object> getAdminRevenue(String adminEmail) {
+        Long restaurantId = resolveRestaurantId(adminEmail);
+        BigDecimal revenue = orderRepository.sumTotalAmountByRestaurantIdAndStatus(restaurantId, OrderStatus.DELIVERED);
+        if (revenue == null) revenue = BigDecimal.ZERO;
+
+        long totalOrders = orderRepository.countByRestaurantIdAndOrderStatus(restaurantId, OrderStatus.DELIVERED)
+                + orderRepository.countByRestaurantIdAndOrderStatus(restaurantId, OrderStatus.PENDING);
+
         Map<String, Object> data = new HashMap<>();
-        data.put("currency", "USD");
-        data.put("period", "last_7_days");
-        data.put("total", 9812.40);
-        data.put("dataSource", "mock");
+        data.put("currency", "INR");
+        data.put("period", "all_time");
+        data.put("total", revenue);
+        data.put("totalOrders", totalOrders);
         return data;
     }
 
-    public Map<String, Object> getAdminTopItems() {
+    /**
+     * Top menu items by quantity ordered, scoped to the admin's restaurant.
+     */
+    public Map<String, Object> getAdminTopItems(String adminEmail) {
+        Long restaurantId = resolveRestaurantId(adminEmail);
+        List<Object[]> rows = orderItemRepository.findTopItemsByRestaurant(restaurantId);
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (int i = 0; i < Math.min(rows.size(), 10); i++) {
+            Object[] row = rows.get(i);
+            Map<String, Object> item = new HashMap<>();
+            item.put("name", row[0] != null ? row[0].toString() : "Unknown");
+            item.put("orders", row[1] != null ? ((Number) row[1]).longValue() : 0L);
+            items.add(item);
+        }
+
         Map<String, Object> data = new HashMap<>();
-        data.put("items", List.of(
-                Map.of("name", "Margherita Pizza", "orders", 120),
-                Map.of("name", "Chicken Biryani", "orders", 98),
-                Map.of("name", "Veggie Burger", "orders", 76)
-        ));
-        data.put("dataSource", "mock");
+        data.put("items", items);
         return data;
+    }
+
+    private Long resolveRestaurantId(String adminEmail) {
+        if (adminEmail == null || adminEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+        com.foodorderapplication.backend.model.User admin = userRepository.findByEmail(adminEmail.trim().toLowerCase())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+        return restaurantRepository.findByAdminId(admin.getUserId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"))
+                .getRestaurantId();
     }
 }

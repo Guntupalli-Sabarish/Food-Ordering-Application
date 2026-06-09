@@ -35,8 +35,7 @@ public class PaymentController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Payment> verify(Authentication authentication, @RequestBody Map<String, Object> body) {
         Long paymentId = parseLong(body.get("paymentId"));
-        String transactionId = (String) body.get("transactionId");
-        Payment p = paymentService.verifyPayment(authentication.getName(), paymentId, transactionId);
+        Payment p = paymentService.verifyPayment(authentication.getName(), paymentId);
         return ResponseEntity.ok(p);
     }
 

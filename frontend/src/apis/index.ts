@@ -92,7 +92,14 @@ type PaymentDTO = {
   createdAt: string;
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+const _rawApiUrl = import.meta.env.VITE_API_BASE_URL;
+if (!_rawApiUrl && import.meta.env.PROD) {
+  throw new Error(
+    "[Config Error] VITE_API_BASE_URL is required for production builds. " +
+    "Set it in your .env or deployment environment."
+  );
+}
+const API_BASE_URL = _rawApiUrl ?? "http://localhost:8080";
 const DEFAULT_MENU_IMAGE =
   "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 
@@ -154,6 +161,14 @@ const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> =>
   });
 
   if (!response.ok) {
+    // Global 401 handler: clear session and redirect to login on unauthorized
+    if (response.status === 401) {
+      localStorage.removeItem("foodapp.auth");
+      // Avoid redirect loop if we are already on the login page
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
+    }
     const msg = await parseApiError(response);
     throw new ApiError(msg, response.status);
   }
@@ -172,6 +187,8 @@ const unwrapApiResponse = async <T>(path: string, options?: RequestInit) => {
 
 const toOrderStatus = (status: string): OrderStatus => {
   switch (status) {
+    case "PENDING_PAYMENT":
+      return "PENDING_PAYMENT";
     case "PENDING":
       return "PLACED";
     case "ACCEPTED":
@@ -546,10 +563,10 @@ export const initiatePayment = async (orderId: number, method: string) => {
   });
 };
 
-export const verifyPayment = async (paymentId: number, transactionId: string) => {
+export const verifyPayment = async (paymentId: number) => {
   return apiRequest<PaymentDTO>("/api/customer/payments/verify", {
     method: "POST",
-    body: JSON.stringify({ paymentId, transactionId }),
+    body: JSON.stringify({ paymentId }),
   });
 };
 

@@ -120,6 +120,18 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(String userEmail, String deliveryAddress, String paymentMethod) {
+        // --- Validate inputs up front ---
+        if (deliveryAddress == null || deliveryAddress.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Delivery address is required");
+        }
+        // Normalize and validate payment method
+        String normalizedMethod = (paymentMethod == null) ? "" : paymentMethod.trim().toUpperCase();
+        java.util.Set<String> supportedMethods = java.util.Set.of("COD", "CARD", "UPI", "WALLET");
+        if (!supportedMethods.contains(normalizedMethod)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unsupported payment method. Supported: COD, CARD, UPI, WALLET");
+        }
+
         Long userId = resolveUserId(userEmail);
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty"));
@@ -171,8 +183,14 @@ public class OrderService {
         order.setTax(tax);
         order.setTotalAmount(total);
         order.setDeliveryAddress(deliveryAddress);
-        order.setPaymentMethod(paymentMethod);
-        order.setOrderStatus(OrderStatus.PENDING);
+        order.setPaymentMethod(normalizedMethod);
+        
+        if ("COD".equals(normalizedMethod)) {
+            order.setOrderStatus(OrderStatus.PENDING);
+        } else {
+            order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
+        }
+        
         order.setCreatedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
 
@@ -234,7 +252,7 @@ public class OrderService {
         if (order == null || !order.getUserId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
         }
-        if (order.getOrderStatus() != OrderStatus.PENDING) {
+        if (order.getOrderStatus() != OrderStatus.PENDING && order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only pending orders can be cancelled");
         }
         order.setOrderStatus(OrderStatus.CANCELLED);
@@ -287,6 +305,9 @@ public class OrderService {
                 .getRestaurantId();
         if (!order.getRestaurantId().equals(restaurantId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed for this restaurant");
+        }
+        if (order.getOrderStatus() == OrderStatus.PENDING_PAYMENT) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update status of unpaid online orders");
         }
         if (isTerminalStatus(order.getOrderStatus()) && order.getOrderStatus() != status) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status cannot be changed");

@@ -22,10 +22,15 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.config.Customizer;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+        @Value("${app.frontend.allowed-origins:http://localhost:5173,http://localhost:5174}")
+        private String allowedOriginsRaw;
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter)
                         throws Exception {
@@ -61,7 +66,8 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
+                List<String> origins = List.of(allowedOriginsRaw.split(","));
+                config.setAllowedOrigins(origins);
                 config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
                 config.setAllowCredentials(true);
@@ -73,37 +79,7 @@ public class SecurityConfig {
 
         @Bean
         public PasswordEncoder passwordEncoder() {
-                return new PasswordEncoder() {
-                        private final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
-
-                        @Override
-                        public String encode(CharSequence rawPassword) {
-                                return bcrypt.encode(rawPassword);
-                        }
-
-                        @Override
-                        public boolean matches(CharSequence rawPassword, String encodedPassword) {
-                                if (encodedPassword == null) {
-                                        return false;
-                                }
-                                if (encodedPassword.startsWith("$2a$") || 
-                                    encodedPassword.startsWith("$2b$") || 
-                                    encodedPassword.startsWith("$2y$")) {
-                                        try {
-                                                String hashToAttempt = encodedPassword;
-                                                if (encodedPassword.startsWith("$2y$")) {
-                                                        hashToAttempt = "$2a$" + encodedPassword.substring(4);
-                                                } else if (encodedPassword.startsWith("$2b$")) {
-                                                        hashToAttempt = "$2a$" + encodedPassword.substring(4);
-                                                }
-                                                return bcrypt.matches(rawPassword, hashToAttempt);
-                                        } catch (Exception e) {
-                                                return false;
-                                        }
-                                }
-                                return rawPassword.toString().equals(encodedPassword);
-                        }
-                };
+                return new BCryptPasswordEncoder();
         }
 
         @Bean

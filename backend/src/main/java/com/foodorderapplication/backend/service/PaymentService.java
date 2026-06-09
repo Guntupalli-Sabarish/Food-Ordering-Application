@@ -42,6 +42,13 @@ public class PaymentService {
         if (order.getOrderStatus() == OrderStatus.CANCELLED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot pay for a cancelled order");
         }
+        // Idempotency guard: reject if payment already initiated or completed for this order
+        if (paymentRepository.existsByOrderIdAndPaymentStatusIn(orderId,
+                java.util.Arrays.asList(com.foodorderapplication.backend.model.enums.PaymentStatus.PENDING,
+                        com.foodorderapplication.backend.model.enums.PaymentStatus.PAID))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "A payment has already been initiated for this order");
+        }
         Payment p = new Payment();
         p.setOrderId(orderId);
         p.setPaymentMethod(method);
@@ -51,13 +58,10 @@ public class PaymentService {
         return paymentRepository.save(p);
     }
 
-    @Transactional
-    public Payment verifyPayment(String userEmail, Long paymentId, boolean success) {
-        return verifyPayment(userEmail, paymentId, success ? "TXN_SUCCESS_" + paymentId : "TXN_FAIL_" + paymentId);
-    }
+
 
     @Transactional
-    public Payment verifyPayment(String userEmail, Long paymentId, String transactionId) {
+    public Payment verifyPayment(String userEmail, Long paymentId) {
         Long userId = resolveUserId(userEmail);
         Payment p = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
@@ -76,20 +80,26 @@ public class PaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment is not pending");
         }
 
-        boolean success = transactionId != null && transactionId.startsWith("TXN_SUCCESS_");
-        boolean failed = transactionId != null && transactionId.startsWith("TXN_FAIL_");
+        boolean success = mockProviderLookup(paymentId);
 
         if (success) {
             p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.PAID);
-            order.setOrderStatus(OrderStatus.ACCEPTED);
+            order.setOrderStatus(OrderStatus.PENDING);
             orderRepository.save(order);
             sendOrderConfirmationEmail(order);
-        } else if (failed) {
-            p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.FAILED);
         } else {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid payment transaction reference");
+            p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.FAILED);
+            order.setOrderStatus(OrderStatus.CANCELLED);
+            orderRepository.save(order);
         }
         return paymentRepository.save(p);
+    }
+
+    private boolean mockProviderLookup(Long paymentId) {
+        // No real payment provider is integrated yet.
+        // Disable online payment verification until Stripe/Razorpay/etc. is wired in.
+        throw new UnsupportedOperationException(
+                "Online payment verification is not yet supported. Please use Cash on Delivery.");
     }
 
     public List<Payment> getPaymentsForOrder(String userEmail, Long orderId) {

@@ -17,7 +17,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,13 +43,24 @@ public class AuthService {
     @Value("${app.dev.bypass-email-verification:false}")
     private boolean bypassEmailVerification;
 
+    private final Environment env;
+
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-            NotificationService notificationService, SmtpProperties smtpProperties) {
+            NotificationService notificationService, SmtpProperties smtpProperties, Environment env) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.notificationService = notificationService;
         this.smtpProperties = smtpProperties;
+        this.env = env;
+    }
+
+    private boolean isSafeToBypass() {
+        if (!bypassEmailVerification) return false;
+        if (env.getActiveProfiles() != null) {
+            return !Arrays.asList(env.getActiveProfiles()).contains("prod");
+        }
+        return true;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -55,7 +68,26 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email and password are required");
         }
 
-        String email = normalizeEmail(request.getEmail());
+        // Validate email format
+        String emailRaw = request.getEmail().trim();
+        if (!emailRaw.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format");
+        }
+        // Validate field lengths
+        if (emailRaw.length() > 254) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must not exceed 254 characters");
+        }
+        if (request.getName() != null && request.getName().trim().length() > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name must not exceed 100 characters");
+        }
+        if (request.getPassword().length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
+        }
+        if (request.getPassword().length() > 128) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must not exceed 128 characters");
+        }
+
+        String email = normalizeEmail(emailRaw);
         if (userRepository.existsByEmail(email)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
         }
@@ -81,7 +113,7 @@ public class AuthService {
 
         // If emailResult indicates failure or did not report success, set emailVerified true ONLY if bypass is active
         if (emailResult == null || !"SENT".equals(emailResult.get("status"))) {
-            if (bypassEmailVerification) {
+            if (isSafeToBypass()) {
                 savedUser.setEmailVerified(true);
                 savedUser.setVerificationToken(null);
                 savedUser.setVerificationTokenExpiresAt(null);
@@ -113,16 +145,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        if (user.getPassword() != null && 
-            !user.getPassword().startsWith("$2a$") && 
-            !user.getPassword().startsWith("$2b$") && 
-            !user.getPassword().startsWith("$2y$")) {
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-            user = userRepository.save(user);
-        }
-
         if (!user.isEmailVerified()) {
-            if (bypassEmailVerification) {
+            if (isSafeToBypass()) {
                 user.setEmailVerified(true);
                 user.setVerificationToken(null);
                 user.setVerificationTokenExpiresAt(null);
@@ -155,7 +179,8 @@ public class AuthService {
             String resetLink = appFrontendResetUrl
                     + "?email=" + encodeQueryValue(normalizedEmail)
                     + "&token=" + encodeQueryValue(token);
-            System.out.println("RESET PASSWORD LINK: " + resetLink);
+            // NOTE: Do not log the reset link or token — it is a sensitive credential.
+            // A structured event log (e.g., "Password reset email queued for user") is acceptable.
 
             EmailRequest request = new EmailRequest();
             request.setTo(user.getEmail());

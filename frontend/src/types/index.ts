@@ -38,6 +38,7 @@ export interface CartItem {
 }
 
 export type OrderStatus =
+  | "PENDING_PAYMENT"
   | "PLACED"
   | "PREPARING"
   | "OUT_FOR_DELIVERY"

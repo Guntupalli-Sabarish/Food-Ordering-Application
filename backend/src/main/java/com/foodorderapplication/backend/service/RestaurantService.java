@@ -2,8 +2,11 @@ package com.foodorderapplication.backend.service;
 
 import com.foodorderapplication.backend.dto.RestaurantDTO;
 import com.foodorderapplication.backend.model.Restaurant;
+import com.foodorderapplication.backend.model.enums.OrderStatus;
+import com.foodorderapplication.backend.repository.OrderRepository;
 import com.foodorderapplication.backend.repository.RestaurantRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -14,12 +17,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Transactional
 public class RestaurantService {
+	private static final List<OrderStatus> TERMINAL_STATUSES = Arrays.asList(OrderStatus.DELIVERED, OrderStatus.CANCELLED);
 	private final RestaurantRepository restaurantRepository;
 	private final UserRepository userRepository;
+	private final OrderRepository orderRepository;
 
-	public RestaurantService(RestaurantRepository restaurantRepository, UserRepository userRepository) {
+	public RestaurantService(RestaurantRepository restaurantRepository, UserRepository userRepository,
+			OrderRepository orderRepository) {
 		this.restaurantRepository = restaurantRepository;
 		this.userRepository = userRepository;
+		this.orderRepository = orderRepository;
 	}
 
 	public RestaurantDTO createRestaurant(RestaurantDTO request) {
@@ -78,6 +85,11 @@ public class RestaurantService {
 	public void deleteRestaurant(Long id) {
 		validateId(id, "restaurantId");
 		Restaurant restaurant = getRestaurantOrThrow(id);
+		// Guard: do not delete if there are non-terminal orders for this restaurant
+		if (orderRepository.existsByRestaurantIdAndOrderStatusNotIn(id, TERMINAL_STATUSES)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"Cannot delete restaurant with active orders");
+		}
 		restaurantRepository.delete(restaurant);
 	}
 

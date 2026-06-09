@@ -2,8 +2,11 @@ package com.foodorderapplication.backend.service;
 
 import com.foodorderapplication.backend.dto.UserDTO;
 import com.foodorderapplication.backend.model.User;
+import com.foodorderapplication.backend.model.enums.OrderStatus;
 import com.foodorderapplication.backend.model.enums.UserRole;
+import com.foodorderapplication.backend.repository.OrderRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -12,10 +15,13 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UserService {
+	private static final List<OrderStatus> TERMINAL_STATUSES = Arrays.asList(OrderStatus.DELIVERED, OrderStatus.CANCELLED);
 	private final UserRepository userRepository;
+	private final OrderRepository orderRepository;
 
-	public UserService(UserRepository userRepository) {
+	public UserService(UserRepository userRepository, OrderRepository orderRepository) {
 		this.userRepository = userRepository;
+		this.orderRepository = orderRepository;
 	}
 
 	public List<UserDTO> listUsers() {
@@ -34,6 +40,11 @@ public class UserService {
 
 	public void deleteUser(Long userId) {
 		User user = findUser(userId);
+		// Guard: do not delete if there are non-terminal orders for this user
+		if (orderRepository.existsByUserIdAndOrderStatusNotIn(user.getUserId(), TERMINAL_STATUSES)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"Cannot delete user with active orders");
+		}
 		userRepository.delete(user);
 	}
 

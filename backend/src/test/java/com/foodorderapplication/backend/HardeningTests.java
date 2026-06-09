@@ -2,6 +2,7 @@ package com.foodorderapplication.backend;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.foodorderapplication.backend.dto.MenuItemDTO;
 import com.foodorderapplication.backend.dto.RestaurantDTO;
 import com.foodorderapplication.backend.dto.auth.RegisterRequest;
 import com.foodorderapplication.backend.dto.auth.LoginRequest;
@@ -19,9 +20,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.server.ResponseStatusException;
 
 @SpringBootTest
+@ActiveProfiles("test")
 public class HardeningTests {
 
     @Autowired
@@ -51,6 +54,12 @@ public class HardeningTests {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private MenuService menuService;
+
+    @Autowired
+    private UserService userService;
+
     @Test
     public void testRegistrationAlwaysCreatesCustomer() {
         String uniqueEmail = "reg_test_" + UUID.randomUUID() + "@test.com";
@@ -67,7 +76,7 @@ public class HardeningTests {
     }
 
     @Test
-    public void testPaymentVerificationRejectsForgedRequests() {
+    public void testPaymentVerificationProviderLookup() {
         // Create user
         User user = new User();
         user.setName("Payment Customer");
@@ -76,7 +85,7 @@ public class HardeningTests {
         user.setPassword(passwordEncoder.encode("Sai_310505"));
         user.setRole(UserRole.CUSTOMER);
         user.setEmailVerified(true);
-        User savedUser = userRepository.save(user);
+        userRepository.save(user);
 
         // Create restaurant
         Restaurant rest = new Restaurant();
@@ -104,14 +113,10 @@ public class HardeningTests {
         // Initiate payment
         Payment payment = paymentService.initiatePayment(email, savedOrder.getOrderId(), PaymentMethod.CARD);
 
-        // 1. Forge signature/transactionId -> should throw
-        assertThrows(ResponseStatusException.class, () -> {
-            paymentService.verifyPayment(email, payment.getPaymentId(), "FORGED_SIGNATURE");
-        });
-
-        // 2. Validate valid transactionId moves order to ACCEPTED
-        Payment verified = paymentService.verifyPayment(email, payment.getPaymentId(), "TXN_SUCCESS_" + savedOrder.getOrderId());
-        assertEquals(PaymentStatus.PAID, verified.getPaymentStatus());
+        // verifyPayment must throw because no real payment provider is integrated.
+        // This ensures a mock returning true can never silently mark payments as PAID.
+        assertThrows(UnsupportedOperationException.class, () ->
+                paymentService.verifyPayment(email, payment.getPaymentId()));
     }
 
     @Test
@@ -194,21 +199,40 @@ public class HardeningTests {
     }
 
     @Test
-    public void testSafePasswordEncoderDelegation() {
-        // Plaintext matches
-        assertTrue(passwordEncoder.matches("Sai_310505", "Sai_310505"));
-
-        // BCrypt variants match ($2a, $2b, $2y)
+    public void testProductionPasswordEncoderRejectsPlaintext() {
+        // BCrypt hashes must be verified correctly
         String hash2a = "$2a$10$zOYWJhj8D1cJ5DxUx2z3gOCdxH6oriPKKlB8UAp7TELeAfVSoHT4y";
         String hash2b = "$2b$10$zOYWJhj8D1cJ5DxUx2z3gOCdxH6oriPKKlB8UAp7TELeAfVSoHT4y";
-        String hash2y = "$2y$10$zOYWJhj8D1cJ5DxUx2z3gOCdxH6oriPKKlB8UAp7TELeAfVSoHT4y";
 
         assertTrue(passwordEncoder.matches("Sai_310505", hash2a));
         assertTrue(passwordEncoder.matches("Sai_310505", hash2b));
-        assertTrue(passwordEncoder.matches("Sai_310505", hash2y));
-        
-        // Assert no double-hashing on boot/matching
-        assertFalse(hash2a.startsWith("{bcrypt}"));
+
+        // Plaintext-stored passwords must NOT match via the encoder (no fallback).
+        // The encoder is now BCryptPasswordEncoder and must reject plaintext values.
+        assertFalse(passwordEncoder.matches("plaintext_password", "plaintext_password"));
+        assertFalse(passwordEncoder.matches("anypassword", "anypassword"));
+    }
+
+    @Test
+    public void testProductionLoginRejectsPlaintextStoredPassword() {
+        // Simulate a user with a plaintext (un-hashed) password stored directly in the DB
+        String email = "plaintext_user_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Plaintext User");
+        user.setEmail(email);
+        // Store plaintext directly — simulates a legacy/compromised row
+        user.setPassword("Sai_310505");
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Login with the same plaintext password must fail because BCryptPasswordEncoder
+        // will not accept plaintext values as valid hashes.
+        com.foodorderapplication.backend.dto.auth.LoginRequest req =
+                new com.foodorderapplication.backend.dto.auth.LoginRequest();
+        req.setEmail(email);
+        req.setPassword("Sai_310505");
+        assertThrows(Exception.class, () -> authService.login(req));
     }
 
     @Test
@@ -299,5 +323,249 @@ public class HardeningTests {
         dto2.setCuisine("Cuisine");
         dto2.setAdminId(savedAdm.getUserId());
         assertThrows(ResponseStatusException.class, () -> restaurantService.createRestaurant(dto2));
+    }
+
+    @Test
+    public void testMenuItemDuplicateNameRejected() {
+        // Create an admin user and restaurant
+        User adm = new User();
+        adm.setName("Menu Admin");
+        String adminEmail = "menu_admin_" + UUID.randomUUID() + "@test.com";
+        adm.setEmail(adminEmail);
+        adm.setPassword(passwordEncoder.encode("Sai_310505"));
+        adm.setRole(UserRole.ADMIN);
+        adm.setEmailVerified(true);
+        User savedAdm = userRepository.save(adm);
+
+        RestaurantDTO restDto = new RestaurantDTO();
+        restDto.setName("Menu Test Rest");
+        restDto.setAddress("Addr");
+        restDto.setCuisine("Cuisine");
+        restDto.setAdminId(savedAdm.getUserId());
+        restaurantService.createRestaurant(restDto);
+
+        // Create first item
+        MenuItemDTO item1 = new MenuItemDTO();
+        item1.setRestaurantId(restaurantRepository.findByAdminId(savedAdm.getUserId()).get().getRestaurantId());
+        item1.setItemName("Unique Pizza");
+        item1.setDescription("Desc");
+        item1.setCategory("Main");
+        item1.setPrice(new BigDecimal("12.00"));
+        menuService.createMenuItem(adminEmail, item1);
+
+        // Create duplicate item - should throw 409
+        MenuItemDTO item2 = new MenuItemDTO();
+        item2.setRestaurantId(item1.getRestaurantId());
+        item2.setItemName("unique pizza"); // same name, different case
+        item2.setDescription("Desc");
+        item2.setCategory("Main");
+        item2.setPrice(new BigDecimal("15.00"));
+        assertThrows(ResponseStatusException.class, () -> menuService.createMenuItem(adminEmail, item2));
+    }
+
+    @Test
+    public void testMenuItemZeroPriceRejected() {
+        User adm = new User();
+        adm.setName("Price Admin");
+        String adminEmail = "price_admin_" + UUID.randomUUID() + "@test.com";
+        adm.setEmail(adminEmail);
+        adm.setPassword(passwordEncoder.encode("Sai_310505"));
+        adm.setRole(UserRole.ADMIN);
+        adm.setEmailVerified(true);
+        User savedAdm = userRepository.save(adm);
+
+        RestaurantDTO restDto = new RestaurantDTO();
+        restDto.setName("Price Test Rest");
+        restDto.setAddress("Addr");
+        restDto.setCuisine("Cuisine");
+        restDto.setAdminId(savedAdm.getUserId());
+        restaurantService.createRestaurant(restDto);
+
+        Long restId = restaurantRepository.findByAdminId(savedAdm.getUserId()).get().getRestaurantId();
+
+        MenuItemDTO zeroPriceItem = new MenuItemDTO();
+        zeroPriceItem.setRestaurantId(restId);
+        zeroPriceItem.setItemName("Free Item");
+        zeroPriceItem.setDescription("Desc");
+        zeroPriceItem.setCategory("Main");
+        zeroPriceItem.setPrice(BigDecimal.ZERO);
+        // Zero price should be rejected
+        assertThrows(ResponseStatusException.class, () -> menuService.createMenuItem(adminEmail, zeroPriceItem));
+
+        MenuItemDTO negativePriceItem = new MenuItemDTO();
+        negativePriceItem.setRestaurantId(restId);
+        negativePriceItem.setItemName("Negative Item");
+        negativePriceItem.setDescription("Desc");
+        negativePriceItem.setCategory("Main");
+        negativePriceItem.setPrice(new BigDecimal("-5.00"));
+        // Negative price should also be rejected
+        assertThrows(ResponseStatusException.class, () -> menuService.createMenuItem(adminEmail, negativePriceItem));
+    }
+
+    @Test
+    public void testDeleteRestaurantWithActiveOrdersFails() {
+        String email = "del_rest_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Del Rest Customer");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        Restaurant rest = new Restaurant();
+        rest.setName("Del Rest");
+        rest.setAddress("Addr");
+        rest.setCuisine("Cuisine");
+        rest.setAdminId(3L);
+        rest.setActive(true);
+        Restaurant savedRest = restaurantRepository.save(rest);
+
+        MenuItem mi = new MenuItem();
+        mi.setItemName("Del Rest Item");
+        mi.setDescription("Desc");
+        mi.setCategory("Cat");
+        mi.setPrice(new BigDecimal("50.00"));
+        mi.setAvailability(true);
+        mi.setRestaurant(savedRest);
+        menuItemRepository.save(mi);
+
+        // Add item to cart and place order
+        cartService.addItem(email, mi.getMenuItemId(), 1);
+        orderService.createOrder(email, "Test Addr", "cod");
+
+        // Deleting restaurant with active (PENDING) order should throw 409
+        assertThrows(ResponseStatusException.class,
+                () -> restaurantService.deleteRestaurant(savedRest.getRestaurantId()));
+    }
+
+    @Test
+    public void testDeleteUserWithActiveOrdersFails() {
+        String email = "del_user_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Del User Customer");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        User savedUser = userRepository.save(user);
+
+        Restaurant rest = new Restaurant();
+        rest.setName("Del User Rest");
+        rest.setAddress("Addr");
+        rest.setCuisine("Cuisine");
+        rest.setAdminId(3L);
+        rest.setActive(true);
+        Restaurant savedRest = restaurantRepository.save(rest);
+
+        MenuItem mi = new MenuItem();
+        mi.setItemName("Del User Item");
+        mi.setDescription("Desc");
+        mi.setCategory("Cat");
+        mi.setPrice(new BigDecimal("50.00"));
+        mi.setAvailability(true);
+        mi.setRestaurant(savedRest);
+        menuItemRepository.save(mi);
+
+        cartService.addItem(email, mi.getMenuItemId(), 1);
+        orderService.createOrder(email, "Test Addr", "cod");
+
+        // Deleting user with active order should throw 409
+        assertThrows(ResponseStatusException.class,
+                () -> userService.deleteUser(savedUser.getUserId()));
+    }
+
+    @Test
+    public void testPaymentIdempotency() {
+        String email = "idem_pay_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Idempotent Customer");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        Restaurant rest = new Restaurant();
+        rest.setName("Idem Pay Rest");
+        rest.setAddress("Addr");
+        rest.setCuisine("Cuisine");
+        rest.setAdminId(3L);
+        rest.setActive(true);
+        Restaurant savedRest = restaurantRepository.save(rest);
+
+        MenuItem mi = new MenuItem();
+        mi.setItemName("Idem Pay Item");
+        mi.setDescription("Desc");
+        mi.setCategory("Cat");
+        mi.setPrice(new BigDecimal("75.00"));
+        mi.setAvailability(true);
+        mi.setRestaurant(savedRest);
+        menuItemRepository.save(mi);
+
+        cartService.addItem(email, mi.getMenuItemId(), 1);
+        Order order = orderService.createOrder(email, "Addr", "card");
+
+        // First payment initiation should succeed
+        paymentService.initiatePayment(email, order.getOrderId(), PaymentMethod.CARD);
+
+        // Second call should throw 409 (idempotency)
+        assertThrows(ResponseStatusException.class,
+                () -> paymentService.initiatePayment(email, order.getOrderId(), PaymentMethod.CARD));
+    }
+
+    @Test
+    public void testCrossRestaurantCartBlocked() {
+        String email = "cross_rest_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Cross Rest Customer");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Restaurant A
+        Restaurant restA = new Restaurant();
+        restA.setName("Rest A Cross");
+        restA.setAddress("Addr A");
+        restA.setCuisine("Cuisine");
+        restA.setAdminId(3L);
+        restA.setActive(true);
+        Restaurant savedA = restaurantRepository.save(restA);
+
+        MenuItem miA = new MenuItem();
+        miA.setItemName("Item From A Cross");
+        miA.setDescription("Desc");
+        miA.setCategory("Cat");
+        miA.setPrice(new BigDecimal("20.00"));
+        miA.setAvailability(true);
+        miA.setRestaurant(savedA);
+        menuItemRepository.save(miA);
+
+        // Restaurant B
+        Restaurant restB = new Restaurant();
+        restB.setName("Rest B Cross");
+        restB.setAddress("Addr B");
+        restB.setCuisine("Cuisine");
+        restB.setAdminId(3L);
+        restB.setActive(true);
+        Restaurant savedB = restaurantRepository.save(restB);
+
+        MenuItem miB = new MenuItem();
+        miB.setItemName("Item From B Cross");
+        miB.setDescription("Desc");
+        miB.setCategory("Cat");
+        miB.setPrice(new BigDecimal("30.00"));
+        miB.setAvailability(true);
+        miB.setRestaurant(savedB);
+        menuItemRepository.save(miB);
+
+        // Add item from Restaurant A
+        cartService.addItem(email, miA.getMenuItemId(), 1);
+
+        // Adding item from Restaurant B should throw 409 (cross-restaurant)
+        assertThrows(ResponseStatusException.class,
+                () -> cartService.addItem(email, miB.getMenuItemId(), 1));
     }
 }

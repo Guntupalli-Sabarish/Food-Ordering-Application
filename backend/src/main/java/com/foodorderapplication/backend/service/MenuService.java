@@ -32,6 +32,12 @@ public class MenuService {
 		validateMenuRequest(request);
 		Long adminId = resolveAdminId(adminEmail);
 		Restaurant restaurant = getRestaurantForAdmin(adminId, request.getRestaurantId());
+		// Prevent duplicate item names within the same restaurant (case-insensitive)
+		if (menuItemRepository.existsByRestaurantRestaurantIdAndItemNameIgnoreCase(
+				restaurant.getRestaurantId(), request.getItemName().trim())) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"A menu item with this name already exists in the restaurant");
+		}
 		MenuItem menuItem = new MenuItem();
 		menuItem.setRestaurant(restaurant);
 		menuItem.setItemName(request.getItemName().trim());
@@ -70,6 +76,13 @@ public class MenuService {
 		verifyAdminOwnership(adminId, menuItem.getRestaurant().getRestaurantId());
 		if (!menuItem.getRestaurant().getRestaurantId().equals(request.getRestaurantId())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Restaurant id cannot be changed");
+		}
+		// Prevent duplicate item names if name is being changed (case-insensitive)
+		if (!menuItem.getItemName().equalsIgnoreCase(request.getItemName().trim()) &&
+				menuItemRepository.existsByRestaurantRestaurantIdAndItemNameIgnoreCase(
+						menuItem.getRestaurant().getRestaurantId(), request.getItemName().trim())) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"A menu item with this name already exists in the restaurant");
 		}
 		menuItem.setItemName(request.getItemName().trim());
 		menuItem.setDescription(request.getDescription().trim());
@@ -129,14 +142,20 @@ public class MenuService {
 		if (isBlank(request.getItemName())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item name is required");
 		}
+		if (request.getItemName().trim().length() > 100) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item name must not exceed 100 characters");
+		}
 		if (isBlank(request.getDescription())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Description is required");
 		}
 		if (isBlank(request.getCategory())) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
 		}
-		if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) < 0) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is invalid");
+		if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be greater than zero");
+		}
+		if (request.getPrice().compareTo(new BigDecimal("99999.99")) > 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must not exceed 99999.99");
 		}
 	}
 

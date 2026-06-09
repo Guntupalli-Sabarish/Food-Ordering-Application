@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -59,17 +60,17 @@ public class AnalyticsController {
 
     @GetMapping("/admin/analytics/revenue")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> adminRevenue(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> adminRevenue(Authentication authentication, HttpServletRequest request) {
         logger.info("Admin analytics revenue requested by user with role {}", UserRole.ADMIN);
-        ApiResponse response = ApiResponse.ok("Revenue data", analyticsService.getAdminRevenue(), request.getRequestURI(), HttpStatus.OK.value());
+        ApiResponse response = ApiResponse.ok("Revenue data", analyticsService.getAdminRevenue(authentication.getName()), request.getRequestURI(), HttpStatus.OK.value());
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/admin/analytics/top-items")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> adminTopItems(HttpServletRequest request) {
+    public ResponseEntity<ApiResponse> adminTopItems(Authentication authentication, HttpServletRequest request) {
         logger.info("Admin analytics top items requested by user with role {}", UserRole.ADMIN);
-        ApiResponse response = ApiResponse.ok("Top items", analyticsService.getAdminTopItems(), request.getRequestURI(), HttpStatus.OK.value());
+        ApiResponse response = ApiResponse.ok("Top items", analyticsService.getAdminTopItems(authentication.getName()), request.getRequestURI(), HttpStatus.OK.value());
         return ResponseEntity.ok(response);
     }
 }

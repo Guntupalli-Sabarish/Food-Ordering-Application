@@ -5,6 +5,7 @@ import { PublicLayout } from "@/layouts/PublicLayout";
 import { AppLayout } from "@/layouts/AppLayout";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { SuperAdminLayout } from "@/layouts/SuperAdminLayout";
+import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
@@ -28,6 +29,9 @@ import { SuperMonitoringPage } from "@/pages/super/SuperMonitoringPage";
 
 export const AppRoutes = () => (
   <Routes>
+    {/* Public landing page — no layout wrapper needed */}
+    <Route path="/landing" element={<LandingPage />} />
+
     <Route element={<PublicLayout />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
+	boolean existsByRestaurantRestaurantIdAndItemNameIgnoreCase(Long restaurantId, String itemName);
 	@Query("select m from MenuItem m "
 			+ "where m.restaurant.restaurantId = :restaurantId "
 			+ "and (:itemName is null or lower(m.itemName) like lower(concat('%', :itemName, '%'))) "

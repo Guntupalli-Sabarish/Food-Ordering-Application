@@ -11,7 +11,6 @@ import com.foodorderapplication.backend.repository.CartItemRepository;
 import com.foodorderapplication.backend.repository.CartRepository;
 import com.foodorderapplication.backend.repository.MenuItemRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
-import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +63,19 @@ public class CartService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Restaurant is currently inactive");
         }
         Cart cart = getCartEntity(userEmail);
-        Optional<CartItem> existing = cartItemRepository.findByCartAndMenuItemId(cart, menuItemId);
+        // Cross-restaurant guard: all cart items must belong to the same restaurant
+        java.util.List<CartItem> existingItems = cartItemRepository.findByCart(cart);
+        if (!existingItems.isEmpty()) {
+            Long existingRestaurantId = menuItemRepository.findById(existingItems.get(0).getMenuItemId())
+                    .map(m -> m.getRestaurant().getRestaurantId())
+                    .orElse(null);
+            if (existingRestaurantId != null &&
+                    !existingRestaurantId.equals(menuItem.getRestaurant().getRestaurantId())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Cart contains items from another restaurant. Clear cart to add items from this restaurant.");
+            }
+        }
+        java.util.Optional<CartItem> existing = cartItemRepository.findByCartAndMenuItemId(cart, menuItemId);
         if (existing.isPresent()) {
             CartItem item = existing.get();
             item.setQuantity(item.getQuantity() + quantity);
