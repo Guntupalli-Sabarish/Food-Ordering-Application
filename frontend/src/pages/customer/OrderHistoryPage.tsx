@@ -23,16 +23,21 @@ export const OrderHistoryPage = () => {
         {data.map((order) => (
           <Card key={order.id}>
             <CardContent className="flex flex-wrap items-center justify-between gap-4 p-6">
-              <div>
+              <div className="flex-1 min-w-[200px]">
                 <p className="text-lg font-semibold text-slate-900">
                   {order.restaurantName}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {new Date(order.createdAt).toLocaleDateString()}
                 </p>
+                {order.items && order.items.length > 0 && (
+                  <p className="text-sm text-slate-500 mt-2 font-medium">
+                    {order.items.map((i) => `${i.quantity}x ${i.item.name}`).join(", ")}
+                  </p>
+                )}
               </div>
               <Badge variant="secondary">{order.status}</Badge>
-              <p className="font-semibold">{formatCurrency(order.total)}</p>
+              <p className="font-semibold text-slate-900">{formatCurrency(order.total)}</p>
               <div className="flex gap-2">
                 <Button
                   variant="outline"

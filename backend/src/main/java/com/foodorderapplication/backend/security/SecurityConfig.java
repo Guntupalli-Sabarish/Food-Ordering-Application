@@ -73,18 +73,36 @@ public class SecurityConfig {
 
         @Bean
         public PasswordEncoder passwordEncoder() {
-                return new BCryptPasswordEncoder();
-        }
+                return new PasswordEncoder() {
+                        private final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
-        @Bean
-        public org.springframework.boot.CommandLineRunner passwordMigrator(UserRepository userRepository, PasswordEncoder passwordEncoder) {
-                return args -> {
-                        userRepository.findAll().forEach(user -> {
-                                if (!user.getPassword().startsWith("$2a$")) {
-                                        user.setPassword(passwordEncoder.encode(user.getPassword()));
-                                        userRepository.save(user);
+                        @Override
+                        public String encode(CharSequence rawPassword) {
+                                return bcrypt.encode(rawPassword);
+                        }
+
+                        @Override
+                        public boolean matches(CharSequence rawPassword, String encodedPassword) {
+                                if (encodedPassword == null) {
+                                        return false;
                                 }
-                        });
+                                if (encodedPassword.startsWith("$2a$") || 
+                                    encodedPassword.startsWith("$2b$") || 
+                                    encodedPassword.startsWith("$2y$")) {
+                                        try {
+                                                String hashToAttempt = encodedPassword;
+                                                if (encodedPassword.startsWith("$2y$")) {
+                                                        hashToAttempt = "$2a$" + encodedPassword.substring(4);
+                                                } else if (encodedPassword.startsWith("$2b$")) {
+                                                        hashToAttempt = "$2a$" + encodedPassword.substring(4);
+                                                }
+                                                return bcrypt.matches(rawPassword, hashToAttempt);
+                                        } catch (Exception e) {
+                                                return false;
+                                        }
+                                }
+                                return rawPassword.toString().equals(encodedPassword);
+                        }
                 };
         }
 

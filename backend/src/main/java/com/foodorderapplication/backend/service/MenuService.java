@@ -97,8 +97,9 @@ public class MenuService {
 		if (!restaurant.isActive()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found");
 		}
+		Boolean searchAvailable = available != null ? available : true;
 		List<MenuItem> menuItems = menuItemRepository.searchByRestaurant(restaurantId, cleanFilter(itemName),
-				available, minPrice, maxPrice);
+				searchAvailable, minPrice, maxPrice);
 		return menuItems.stream().map(this::toDto).collect(Collectors.toList());
 	}
 

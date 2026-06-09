@@ -68,6 +68,7 @@ type OrderItemDTO = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  menuItemName?: string;
 };
 
 type OrderDTO = {
@@ -78,6 +79,7 @@ type OrderDTO = {
   orderStatus: string;
   createdAt: string;
   items: OrderItemDTO[];
+  restaurantName?: string;
 };
 
 type PaymentDTO = {
@@ -116,7 +118,16 @@ const buildUrl = (path: string) => {
   return `${API_BASE_URL}${path}`;
 };
 
-const parseApiError = async (response: Response) => {
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+const parseApiError = async (response: Response): Promise<string> => {
   try {
     const payload = (await response.json()) as Partial<ApiResponse<unknown>> & {
       message?: string;
@@ -144,7 +155,8 @@ const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> =>
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response));
+    const msg = await parseApiError(response);
+    throw new ApiError(msg, response.status);
   }
 
   if (response.status === 204) {
@@ -219,14 +231,12 @@ const mapUser = (dto: UserDTO): User => ({
 
 const mapOrder = (dto: OrderDTO): Order => ({
   id: String(dto.orderId ?? ""),
-  restaurantName: dto.restaurantId
-    ? `Restaurant #${dto.restaurantId}`
-    : "Restaurant",
+  restaurantName: dto.restaurantName || (dto.restaurantId ? `Restaurant #${dto.restaurantId}` : "Restaurant"),
   items: (dto.items ?? []).map((item) => ({
     item: {
       id: String(item.menuItemId ?? ""),
       restaurantId: String(dto.restaurantId ?? ""),
-      name: `Item #${item.menuItemId ?? ""}`,
+      name: item.menuItemName || `Item #${item.menuItemId ?? ""}`,
       description: "",
       price: Number(item.unitPrice ?? 0),
       isVeg: false,
@@ -259,12 +269,11 @@ export const login = async (email: string, password: string) => {
 export const register = async (
   name: string,
   email: string,
-  password: string,
-  role: Role = "CUSTOMER"
+  password: string
 ) => {
   const data = await apiRequest<AuthResponse>("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ name, email, password, role }),
+    body: JSON.stringify({ name, email, password }),
   });
   return {
     token: data.token ?? "",
@@ -481,11 +490,18 @@ export const clearCart = async () => {
   }));
 };
 
-export const placeOrder = async () => {
+export const placeOrder = async (deliveryAddress: string, paymentMethod: string) => {
   const data = await apiRequest<OrderDTO>("/api/customer/orders", {
     method: "POST",
+    body: JSON.stringify({ deliveryAddress, paymentMethod }),
   });
   return mapOrder(data);
+};
+
+export const getCheckoutQuote = async () => {
+  return apiRequest<{ subtotal: number; deliveryFee: number; tax: number; total: number }>(
+    "/api/customer/orders/quote"
+  );
 };
 
 export const getOrders = async () => {
@@ -531,10 +547,10 @@ export const initiatePayment = async (orderId: number, method: string) => {
   });
 };
 
-export const verifyPayment = async (paymentId: number, success: boolean) => {
+export const verifyPayment = async (paymentId: number, transactionId: string) => {
   return apiRequest<PaymentDTO>("/api/customer/payments/verify", {
     method: "POST",
-    body: JSON.stringify({ paymentId, success }),
+    body: JSON.stringify({ paymentId, transactionId }),
   });
 };
 
@@ -575,7 +591,9 @@ export const getSalesSeries = async (): Promise<ChartPoint[]> => {
       return data.daily.map((item) => ({ name: item.date, value: item.amount }));
     }
   } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("403")) {
+    if (error instanceof ApiError && error.status === 403) {
+      // Fallback allowed
+    } else {
       throw error;
     }
   }

@@ -46,11 +46,7 @@ public class NotificationService {
         Map<String, Object> response = new HashMap<>();
         if (!isSmtpConfigured()) {
             logger.info("SMTP is not configured; skipping email send to {}", request.getTo());
-            response.put("to", request.getTo());
-            response.put("type", type == null ? "CUSTOM" : type.name());
-            response.put("status", "SKIPPED");
-            response.put("message", "SMTP is not configured");
-            return response;
+            throw new IllegalStateException("SMTP is not configured");
         }
         try {
             smtpClient.send(request.getTo(), subject, body);
@@ -61,11 +57,7 @@ public class NotificationService {
             return response;
         } catch (Exception ex) {
             logger.warn("Failed to send email to {}: {}", request.getTo(), ex.getMessage());
-            response.put("to", request.getTo());
-            response.put("type", type == null ? "CUSTOM" : type.name());
-            response.put("status", "FAILED");
-            response.put("error", ex.getMessage());
-            return response;
+            throw new RuntimeException("SMTP send failed: " + ex.getMessage(), ex);
         }
     }
 

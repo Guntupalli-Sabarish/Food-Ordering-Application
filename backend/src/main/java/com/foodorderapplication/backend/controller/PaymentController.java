@@ -24,7 +24,7 @@ public class PaymentController {
     @PostMapping("/api/customer/payments/initiate")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Payment> initiate(Authentication authentication, @RequestBody Map<String, Object> body) {
-        Long orderId = ((Number) body.get("orderId")).longValue();
+        Long orderId = parseLong(body.get("orderId"));
         com.foodorderapplication.backend.model.enums.PaymentMethod method =
             com.foodorderapplication.backend.model.enums.PaymentMethod.valueOf(((String) body.get("method")).toUpperCase());
         Payment p = paymentService.initiatePayment(authentication.getName(), orderId, method);
@@ -34,10 +34,20 @@ public class PaymentController {
     @PostMapping("/api/customer/payments/verify")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Payment> verify(Authentication authentication, @RequestBody Map<String, Object> body) {
-        Long paymentId = ((Number) body.get("paymentId")).longValue();
-        boolean success = Boolean.TRUE.equals(body.get("success")) || (body.get("success") instanceof Boolean && (Boolean) body.get("success"));
-        Payment p = paymentService.verifyPayment(authentication.getName(), paymentId, success);
+        Long paymentId = parseLong(body.get("paymentId"));
+        String transactionId = (String) body.get("transactionId");
+        Payment p = paymentService.verifyPayment(authentication.getName(), paymentId, transactionId);
         return ResponseEntity.ok(p);
+    }
+
+    private Long parseLong(Object obj) {
+        if (obj == null) {
+            throw new IllegalArgumentException("Required parameter is missing");
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        }
+        return Long.parseLong(obj.toString());
     }
 
     @GetMapping("/api/customer/payments/{orderId}")

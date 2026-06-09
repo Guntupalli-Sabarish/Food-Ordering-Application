@@ -38,6 +38,9 @@ public class AuthService {
     @Value("${app.frontend.reset-url:http://localhost:5173/reset-password}")
     private String appFrontendResetUrl;
 
+    @Value("${app.dev.bypass-email-verification:false}")
+    private boolean bypassEmailVerification;
+
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
             NotificationService notificationService, SmtpProperties smtpProperties) {
         this.userRepository = userRepository;
@@ -61,7 +64,7 @@ public class AuthService {
         user.setName(request.getName());
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(parseRole(request.getRole()));
+        user.setRole(UserRole.CUSTOMER);
         user.setEmailVerified(false);
         String verificationToken = generateResetToken();
         user.setVerificationToken(verificationToken);
@@ -76,12 +79,14 @@ public class AuthService {
             emailResult = Map.of("status", "FAILED", "error", ex.getMessage());
         }
 
-        // If emailResult indicates failure or did not report success, set emailVerified true
+        // If emailResult indicates failure or did not report success, set emailVerified true ONLY if bypass is active
         if (emailResult == null || !"SENT".equals(emailResult.get("status"))) {
-            savedUser.setEmailVerified(true);
-            savedUser.setVerificationToken(null);
-            savedUser.setVerificationTokenExpiresAt(null);
-            userRepository.save(savedUser);
+            if (bypassEmailVerification) {
+                savedUser.setEmailVerified(true);
+                savedUser.setVerificationToken(null);
+                savedUser.setVerificationTokenExpiresAt(null);
+                userRepository.save(savedUser);
+            }
         }
 
         String token = savedUser.isEmailVerified()
@@ -108,14 +113,22 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
+        if (user.getPassword() != null && 
+            !user.getPassword().startsWith("$2a$") && 
+            !user.getPassword().startsWith("$2b$") && 
+            !user.getPassword().startsWith("$2y$")) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user = userRepository.save(user);
+        }
+
         if (!user.isEmailVerified()) {
-            if (!isSmtpConfigured()) {
+            if (bypassEmailVerification) {
                 user.setEmailVerified(true);
                 user.setVerificationToken(null);
                 user.setVerificationTokenExpiresAt(null);
                 user = userRepository.save(user);
             } else {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email not verified");
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Email not verified");
             }
         }
 

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { getAdminMetrics, getCategoryDistribution, getSalesSeries } from "@/apis";
 import type { ChartPoint, DashboardMetric } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 export const useAdminDashboard = () => {
   const [metrics, setMetrics] = useState<DashboardMetric[]>([]);
   const [salesSeries, setSalesSeries] = useState<ChartPoint[]>([]);
   const [categorySeries, setCategorySeries] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     let active = true;
@@ -18,6 +20,10 @@ export const useAdminDashboard = () => {
           setCategorySeries(categoryData);
         }
       })
+      .catch((error) => {
+        const msg = error instanceof Error ? error.message : "Failed to load dashboard metrics";
+        toast({ title: "Dashboard error", description: msg, variant: "destructive" });
+      })
       .finally(() => {
         if (active) {
           setLoading(false);
@@ -26,7 +32,7 @@ export const useAdminDashboard = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [toast]);
 
   return { metrics, salesSeries, categorySeries, loading };
 };

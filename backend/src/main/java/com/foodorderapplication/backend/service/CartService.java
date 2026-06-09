@@ -55,8 +55,14 @@ public class CartService {
         if (quantity <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be positive");
         }
-        menuItemRepository.findById(menuItemId)
+        MenuItem menuItem = menuItemRepository.findById(menuItemId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
+        if (!menuItem.isAvailability()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Menu item is currently unavailable");
+        }
+        if (!menuItem.getRestaurant().isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Restaurant is currently inactive");
+        }
         Cart cart = getCartEntity(userEmail);
         Optional<CartItem> existing = cartItemRepository.findByCartAndMenuItemId(cart, menuItemId);
         if (existing.isPresent()) {

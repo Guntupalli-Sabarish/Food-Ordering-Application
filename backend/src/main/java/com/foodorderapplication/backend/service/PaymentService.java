@@ -53,6 +53,11 @@ public class PaymentService {
 
     @Transactional
     public Payment verifyPayment(String userEmail, Long paymentId, boolean success) {
+        return verifyPayment(userEmail, paymentId, success ? "TXN_SUCCESS_" + paymentId : "TXN_FAIL_" + paymentId);
+    }
+
+    @Transactional
+    public Payment verifyPayment(String userEmail, Long paymentId, String transactionId) {
         Long userId = resolveUserId(userEmail);
         Payment p = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
@@ -61,14 +66,28 @@ public class PaymentService {
         if (!order.getUserId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed for this payment");
         }
+        if (!p.getOrderId().equals(order.getOrderId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment does not match this order");
+        }
+        if (p.getAmount().compareTo(order.getTotalAmount()) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment amount does not match order amount");
+        }
+        if (p.getPaymentStatus() != com.foodorderapplication.backend.model.enums.PaymentStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment is not pending");
+        }
+
+        boolean success = transactionId != null && transactionId.startsWith("TXN_SUCCESS_");
+        boolean failed = transactionId != null && transactionId.startsWith("TXN_FAIL_");
+
         if (success) {
             p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.PAID);
-            // move order forward to ACCEPTED
             order.setOrderStatus(OrderStatus.ACCEPTED);
             orderRepository.save(order);
             sendOrderConfirmationEmail(order);
-        } else {
+        } else if (failed) {
             p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.FAILED);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid payment transaction reference");
         }
         return paymentRepository.save(p);
     }
@@ -104,7 +123,11 @@ public class PaymentService {
                     "name", user.getName() == null ? "Customer" : user.getName(),
                     "orderId", String.valueOf(order.getOrderId()),
                     "amount", String.valueOf(order.getTotalAmount())));
-            notificationService.sendEmail(request);
+            try {
+                notificationService.sendEmail(request);
+            } catch (Exception ex) {
+                // Skip sending if SMTP fails, keeping the payment transaction successful
+            }
         });
     }
 }

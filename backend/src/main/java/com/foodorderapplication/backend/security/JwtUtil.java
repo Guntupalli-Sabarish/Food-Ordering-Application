@@ -18,11 +18,24 @@ public class JwtUtil {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String HMAC_ALGO = "HmacSHA256";
 
-    @Value("${jwt.secret:change-this-secret-for-prod}")
+    @Value("${jwt.secret}")
     private String secret;
 
     @Value("${jwt.expiration-ms:3600000}")
     private long expirationMs;
+
+    @jakarta.annotation.PostConstruct
+    public void validateSecret() {
+        if (secret == null || secret.trim().isEmpty()) {
+            throw new IllegalStateException("JWT secret (JWT_SECRET) is missing or empty!");
+        }
+        if ("change-this-secret-for-prod".equals(secret.trim())) {
+            throw new IllegalStateException("JWT secret (JWT_SECRET) cannot be the default placeholder value!");
+        }
+        if (secret.trim().length() < 32) {
+            throw new IllegalStateException("JWT secret (JWT_SECRET) is too weak! It must be at least 32 characters long.");
+        }
+    }
 
     public String generateToken(String subject, String role) {
         long nowSeconds = Instant.now().getEpochSecond();

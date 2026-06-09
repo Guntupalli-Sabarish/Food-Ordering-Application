@@ -17,8 +17,7 @@ interface AuthContextValue {
   register: (
     name: string,
     email: string,
-    password: string,
-    role?: Role
+    password: string
   ) => Promise<boolean>;
   logout: () => void;
 }
@@ -108,10 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     async (
       name: string,
       email: string,
-      password: string,
-      role: Role = "CUSTOMER"
+      password: string
     ) => {
-      const response = await apiRegister(name, email, password, role);
+      const response = await apiRegister(name, email, password);
       if (response.token) {
         persist(response.user, response.token);
         toast({

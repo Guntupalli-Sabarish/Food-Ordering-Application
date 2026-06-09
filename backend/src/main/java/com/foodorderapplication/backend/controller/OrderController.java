@@ -23,10 +23,18 @@ public class OrderController {
         this.orderService = orderService;
     }
 
+    @GetMapping("/api/customer/orders/quote")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<Map<String, Object>> getQuote(Authentication authentication) {
+        return ResponseEntity.ok(orderService.calculateQuote(authentication.getName()));
+    }
+
     @PostMapping("/api/customer/orders")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Order> createOrder(Authentication authentication) {
-        Order order = orderService.createOrder(authentication.getName());
+    public ResponseEntity<Order> createOrder(Authentication authentication, @RequestBody(required = false) Map<String, String> body) {
+        String address = body != null ? body.get("deliveryAddress") : "Default Address";
+        String method = body != null ? body.get("paymentMethod") : "COD";
+        Order order = orderService.createOrder(authentication.getName(), address, method);
         return ResponseEntity.ok(order);
     }
 

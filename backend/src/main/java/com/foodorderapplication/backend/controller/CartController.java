@@ -32,8 +32,8 @@ public class CartController {
     @PostMapping("/api/customer/cart/add")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CartDTO> addItem(Authentication authentication, @RequestBody Map<String, Object> body) {
-        Long menuItemId = ((Number) body.get("menuItemId")).longValue();
-        int quantity = ((Number) body.getOrDefault("quantity", 1)).intValue();
+        Long menuItemId = parseLong(body.get("menuItemId"));
+        int quantity = parseInt(body.getOrDefault("quantity", 1));
         CartDTO cart = cartService.addItem(authentication.getName(), menuItemId, quantity);
         return ResponseEntity.ok(cart);
     }
@@ -42,9 +42,29 @@ public class CartController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CartDTO> updateItem(Authentication authentication, @PathVariable Long itemId,
             @RequestBody Map<String, Object> body) {
-        int quantity = ((Number) body.getOrDefault("quantity", 0)).intValue();
+        int quantity = parseInt(body.getOrDefault("quantity", 0));
         CartDTO cart = cartService.updateItem(authentication.getName(), itemId, quantity);
         return ResponseEntity.ok(cart);
+    }
+
+    private Long parseLong(Object obj) {
+        if (obj == null) {
+            throw new IllegalArgumentException("Required parameter is missing");
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        }
+        return Long.parseLong(obj.toString());
+    }
+
+    private int parseInt(Object obj) {
+        if (obj == null) {
+            return 0;
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).intValue();
+        }
+        return Integer.parseInt(obj.toString());
     }
 
     @DeleteMapping("/api/customer/cart/remove/{itemId}")

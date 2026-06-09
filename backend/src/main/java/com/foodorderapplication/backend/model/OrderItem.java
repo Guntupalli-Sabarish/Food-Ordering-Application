@@ -27,6 +27,9 @@ public class OrderItem {
     @Column(name = "menu_item_id", nullable = false)
     private Long menuItemId;
 
+    @Column(name = "menu_item_name")
+    private String menuItemName;
+
     @Column(nullable = false)
     private int quantity;
 
@@ -58,6 +61,14 @@ public class OrderItem {
 
     public void setMenuItemId(Long menuItemId) {
         this.menuItemId = menuItemId;
+    }
+
+    public String getMenuItemName() {
+        return menuItemName;
+    }
+
+    public void setMenuItemName(String menuItemName) {
+        this.menuItemName = menuItemName;
     }
 
     public int getQuantity() {

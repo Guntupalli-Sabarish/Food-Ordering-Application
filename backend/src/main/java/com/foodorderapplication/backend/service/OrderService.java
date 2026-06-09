@@ -5,6 +5,7 @@ import com.foodorderapplication.backend.model.CartItem;
 import com.foodorderapplication.backend.model.MenuItem;
 import com.foodorderapplication.backend.model.Order;
 import com.foodorderapplication.backend.model.OrderItem;
+import com.foodorderapplication.backend.model.Restaurant;
 import com.foodorderapplication.backend.model.enums.OrderStatus;
 import com.foodorderapplication.backend.repository.CartItemRepository;
 import com.foodorderapplication.backend.repository.CartRepository;
@@ -19,6 +20,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,8 +58,68 @@ public class OrderService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
     }
 
+    public Map<String, Object> calculateQuote(String userEmail) {
+        Long userId = resolveUserId(userEmail);
+        Cart cart = cartRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty"));
+        List<CartItem> cartItems = cartItemRepository.findByCart(cart);
+        if (cartItems.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
+        }
+        
+        validateCartItems(cartItems);
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (CartItem ci : cartItems) {
+            MenuItem mi = menuItemRepository.findById(ci.getMenuItemId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
+            BigDecimal line = mi.getPrice().multiply(BigDecimal.valueOf(ci.getQuantity()));
+            subtotal = subtotal.add(line);
+        }
+
+        BigDecimal deliveryFee = subtotal.compareTo(BigDecimal.ZERO) > 0 ? new BigDecimal("40.00") : BigDecimal.ZERO;
+        BigDecimal tax = subtotal.multiply(new BigDecimal("0.08")).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal total = subtotal.add(deliveryFee).add(tax);
+
+        java.util.Map<String, Object> quote = new java.util.HashMap<>();
+        quote.put("subtotal", subtotal);
+        quote.put("deliveryFee", deliveryFee);
+        quote.put("tax", tax);
+        quote.put("total", total);
+        return quote;
+    }
+
+    private void validateCartItems(List<CartItem> cartItems) {
+        boolean cartCleaned = false;
+        List<CartItem> toRemove = new ArrayList<>();
+        for (CartItem ci : cartItems) {
+            Optional<MenuItem> miOpt = menuItemRepository.findById(ci.getMenuItemId());
+            if (miOpt.isEmpty()) {
+                toRemove.add(ci);
+                cartCleaned = true;
+                continue;
+            }
+            MenuItem mi = miOpt.get();
+            if (!mi.isAvailability() || !mi.getRestaurant().isActive()) {
+                toRemove.add(ci);
+                cartCleaned = true;
+            }
+        }
+        if (cartCleaned) {
+            for (CartItem ci : toRemove) {
+                cartItemRepository.delete(ci);
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Some items in your cart are no longer available and have been removed.");
+        }
+    }
+
     @Transactional
     public Order createOrder(String userEmail) {
+        return createOrder(userEmail, "Default Address", "COD");
+    }
+
+    @Transactional
+    public Order createOrder(String userEmail, String deliveryAddress, String paymentMethod) {
         Long userId = resolveUserId(userEmail);
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty"));
@@ -65,9 +128,11 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
         }
 
+        validateCartItems(cartItems);
+
         // Ensure all items from same restaurant
         Long restaurantId = null;
-        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal subtotal = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
         for (CartItem ci : cartItems) {
             MenuItem mi = menuItemRepository.findById(ci.getMenuItemId())
@@ -79,20 +144,34 @@ public class OrderService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All cart items must be from the same restaurant");
             }
             BigDecimal line = mi.getPrice().multiply(BigDecimal.valueOf(ci.getQuantity()));
-            total = total.add(line);
+            subtotal = subtotal.add(line);
 
             OrderItem orderItem = new OrderItem();
             orderItem.setMenuItemId(ci.getMenuItemId());
             orderItem.setQuantity(ci.getQuantity());
             orderItem.setUnitPrice(mi.getPrice());
             orderItem.setLineTotal(line);
+            orderItem.setMenuItemName(mi.getItemName());
             orderItems.add(orderItem);
         }
+
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"));
+
+        BigDecimal deliveryFee = subtotal.compareTo(BigDecimal.ZERO) > 0 ? new BigDecimal("40.00") : BigDecimal.ZERO;
+        BigDecimal tax = subtotal.multiply(new BigDecimal("0.08")).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal total = subtotal.add(deliveryFee).add(tax);
 
         Order order = new Order();
         order.setUserId(userId);
         order.setRestaurantId(restaurantId);
+        order.setRestaurantName(restaurant.getName());
+        order.setSubtotal(subtotal);
+        order.setDeliveryFee(deliveryFee);
+        order.setTax(tax);
         order.setTotalAmount(total);
+        order.setDeliveryAddress(deliveryAddress);
+        order.setPaymentMethod(paymentMethod);
         order.setOrderStatus(OrderStatus.PENDING);
         order.setCreatedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
@@ -109,9 +188,33 @@ public class OrderService {
         return savedOrder;
     }
 
+    private void populateNamesIfNull(Order order) {
+        if (order == null) {
+            return;
+        }
+        if (order.getRestaurantName() == null) {
+            restaurantRepository.findById(order.getRestaurantId()).ifPresent(r -> {
+                order.setRestaurantName(r.getName());
+                orderRepository.save(order);
+            });
+        }
+        if (order.getItems() != null) {
+            order.getItems().forEach(item -> {
+                if (item.getMenuItemName() == null) {
+                    menuItemRepository.findById(item.getMenuItemId()).ifPresent(mi -> {
+                        item.setMenuItemName(mi.getItemName());
+                        orderItemRepository.save(item);
+                    });
+                }
+            });
+        }
+    }
+
     public List<Order> listOrdersForUser(String userEmail) {
         Long userId = resolveUserId(userEmail);
-        return orderRepository.findByUserId(userId);
+        List<Order> orders = orderRepository.findByUserId(userId);
+        orders.forEach(this::populateNamesIfNull);
+        return orders;
     }
 
     public Order getOrder(String userEmail, Long orderId) {
@@ -120,6 +223,7 @@ public class OrderService {
         if (order == null || !order.getUserId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
         }
+        populateNamesIfNull(order);
         return order;
     }
 
@@ -136,6 +240,7 @@ public class OrderService {
         order.setOrderStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
         sendOrderStatusEmail(saved);
+        populateNamesIfNull(saved);
         return saved;
     }
 
@@ -145,7 +250,9 @@ public class OrderService {
 
     // Admin operations
     public List<Order> listAllOrders() {
-        return orderRepository.findAll();
+        List<Order> orders = orderRepository.findAll();
+        orders.forEach(this::populateNamesIfNull);
+        return orders;
     }
 
     public List<Order> listOrdersForAdmin(String adminEmail) {
@@ -153,7 +260,9 @@ public class OrderService {
         Long restaurantId = restaurantRepository.findByAdminId(adminId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"))
                 .getRestaurantId();
-        return orderRepository.findByRestaurantId(restaurantId);
+        List<Order> orders = orderRepository.findByRestaurantId(restaurantId);
+        orders.forEach(this::populateNamesIfNull);
+        return orders;
     }
 
     @Transactional
@@ -189,8 +298,10 @@ public class OrderService {
     }
 
     public Order getOrderById(Long orderId) {
-        return orderRepository.findById(orderId)
+        Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        populateNamesIfNull(order);
+        return order;
     }
 
     private void sendOrderStatusEmail(Order order) {
@@ -205,7 +316,11 @@ public class OrderService {
                     "name", user.getName() == null ? "Customer" : user.getName(),
                     "orderId", String.valueOf(order.getOrderId()),
                     "status", order.getOrderStatus().name()));
-            notificationService.sendEmail(request);
+            try {
+                notificationService.sendEmail(request);
+            } catch (Exception ex) {
+                // Skip status email send if SMTP fails, keeping the order flow intact
+            }
         });
     }
 
@@ -220,7 +335,11 @@ public class OrderService {
             request.setContext(java.util.Map.of(
                     "name", user.getName() == null ? "Customer" : user.getName(),
                     "orderId", String.valueOf(order.getOrderId())));
-            notificationService.sendEmail(request);
+            try {
+                notificationService.sendEmail(request);
+            } catch (Exception ex) {
+                // Skip confirmation email send if SMTP fails, keeping the order flow intact
+            }
         });
     }
 

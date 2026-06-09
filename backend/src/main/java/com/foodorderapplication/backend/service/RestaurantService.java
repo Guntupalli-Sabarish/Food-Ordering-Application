@@ -24,6 +24,7 @@ public class RestaurantService {
 
 	public RestaurantDTO createRestaurant(RestaurantDTO request) {
 		validateRestaurantRequest(request, true);
+		validateAdminAssignment(request.getAdminId(), null);
 		Restaurant restaurant = new Restaurant();
 		restaurant.setName(request.getName().trim());
 		restaurant.setAddress(request.getAddress().trim());
@@ -44,6 +45,7 @@ public class RestaurantService {
 	public RestaurantDTO updateRestaurant(Long id, RestaurantDTO request) {
 		validateId(id, "restaurantId");
 		validateRestaurantRequest(request, true);
+		validateAdminAssignment(request.getAdminId(), id);
 		Restaurant restaurant = getRestaurantOrThrow(id);
 		restaurant.setName(request.getName().trim());
 		restaurant.setAddress(request.getAddress().trim());
@@ -53,6 +55,24 @@ public class RestaurantService {
 			restaurant.setActive(request.getActive());
 		}
 		return toDto(restaurantRepository.save(restaurant));
+	}
+
+	private void validateAdminAssignment(Long adminId, Long currentRestaurantId) {
+		if (adminId == null) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin user ID is required");
+		}
+		com.foodorderapplication.backend.model.User user = userRepository.findById(adminId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin user not found"));
+		if (user.getRole() != com.foodorderapplication.backend.model.enums.UserRole.ADMIN) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned user must have the ADMIN role");
+		}
+		java.util.Optional<Restaurant> existing = restaurantRepository.findFirstByAdminId(adminId);
+		if (existing.isPresent()) {
+			Restaurant r = existing.get();
+			if (currentRestaurantId == null || !r.getRestaurantId().equals(currentRestaurantId)) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "This Admin is already assigned to another restaurant");
+			}
+		}
 	}
 
 	public void deleteRestaurant(Long id) {

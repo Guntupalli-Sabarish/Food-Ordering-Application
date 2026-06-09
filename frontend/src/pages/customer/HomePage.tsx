@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RestaurantCard } from "@/components/common/RestaurantCard";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { useNavigate } from "react-router-dom";
 
 const categories = [
   "Biryani",
@@ -33,6 +34,7 @@ const popularDishes = [
 
 export const HomePage = () => {
   usePageTitle("Home");
+  const navigate = useNavigate();
   const { data, loading } = useRestaurants();
 
   return (
@@ -98,7 +100,9 @@ export const HomePage = () => {
           <h2 className="text-2xl font-semibold text-slate-900">
             Featured restaurants
           </h2>
-          <Button variant="outline">View all</Button>
+          <Button variant="outline" onClick={() => navigate("/restaurants")}>
+            View all
+          </Button>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {loading
