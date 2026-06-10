@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 public class QueryLocalMysqlTest {
 
     @Test
+    @org.junit.jupiter.api.Disabled("Manual query test")
     public void queryDatabase() {
         String url = "jdbc:mysql://localhost:3307/fooddb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
         String user = "root";

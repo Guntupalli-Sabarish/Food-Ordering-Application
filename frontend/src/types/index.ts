@@ -30,6 +30,7 @@ export interface MenuItem {
   isVeg: boolean;
   category: string;
   image: string;
+  availability: boolean;
 }
 
 export interface CartItem {

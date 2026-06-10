@@ -15,9 +15,10 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
 			+ "and (:available is null or m.availability = :available) "
 			+ "and (:minPrice is null or m.price >= :minPrice) "
 			+ "and (:maxPrice is null or m.price <= :maxPrice)")
-	List<MenuItem> searchByRestaurant(@Param("restaurantId") Long restaurantId,
+	org.springframework.data.domain.Page<MenuItem> searchByRestaurant(@Param("restaurantId") Long restaurantId,
 			@Param("itemName") String itemName,
 			@Param("available") Boolean available,
 			@Param("minPrice") BigDecimal minPrice,
-			@Param("maxPrice") BigDecimal maxPrice);
+			@Param("maxPrice") BigDecimal maxPrice,
+			org.springframework.data.domain.Pageable pageable);
 }

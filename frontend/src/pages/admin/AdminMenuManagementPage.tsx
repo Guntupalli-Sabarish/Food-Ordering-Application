@@ -28,6 +28,7 @@ export const AdminMenuManagementPage = () => {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [availability, setAvailability] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -50,10 +51,10 @@ export const AdminMenuManagementPage = () => {
     }
 
     const parsedPrice = Number(price);
-    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+    if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
       toast({
         title: "Invalid price",
-        description: "Price must be a positive number.",
+        description: "Price must be a positive number greater than zero.",
         variant: "destructive",
       });
       return;
@@ -67,13 +68,14 @@ export const AdminMenuManagementPage = () => {
         description,
         category,
         price: parsedPrice,
-        availability: true,
+        availability,
       });
       await refresh();
       setItemName("");
       setDescription("");
       setCategory("");
       setPrice("");
+      setAvailability(true);
       setOpen(false);
       toast({ title: "Menu item added", description: "Item saved successfully." });
     } catch (error) {
@@ -97,10 +99,10 @@ export const AdminMenuManagementPage = () => {
       return;
     }
     const parsedPrice = Number(price);
-    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+    if (Number.isNaN(parsedPrice) || parsedPrice <= 0) {
       toast({
         title: "Invalid price",
-        description: "Price must be a positive number.",
+        description: "Price must be a positive number greater than zero.",
         variant: "destructive",
       });
       return;
@@ -113,11 +115,12 @@ export const AdminMenuManagementPage = () => {
         description,
         category,
         price: parsedPrice,
-        availability: true,
+        availability,
       });
       await refresh();
       setEditOpen(false);
       setEditingId(null);
+      setAvailability(true);
       toast({ title: "Menu item updated", description: "Changes saved." });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Update failed";
@@ -133,6 +136,7 @@ export const AdminMenuManagementPage = () => {
     setDescription(item.description ?? "");
     setCategory(item.category ?? "");
     setPrice(String(item.price ?? ""));
+    setAvailability(item.availability);
     setEditOpen(true);
   };
 
@@ -156,7 +160,7 @@ export const AdminMenuManagementPage = () => {
         title="Menu management"
         subtitle="Update pricing and availability"
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(val) => { setOpen(val); if (val) { setAvailability(true); setItemName(""); setDescription(""); setCategory(""); setPrice(""); } }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -188,6 +192,16 @@ export const AdminMenuManagementPage = () => {
                     value={price}
                     onChange={(event) => setPrice(event.target.value)}
                   />
+                  <div className="flex items-center space-x-2 py-1">
+                    <input
+                      type="checkbox"
+                      id="add-availability"
+                      checked={availability}
+                      onChange={(event) => setAvailability(event.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <label htmlFor="add-availability" className="text-sm font-medium">Available for order</label>
+                  </div>
                   <Button onClick={handleSave} disabled={saving}>
                     {saving ? "Saving..." : "Save"}
                   </Button>
@@ -212,7 +226,11 @@ export const AdminMenuManagementPage = () => {
               <TableCell className="font-medium">{item.name}</TableCell>
               <TableCell>{item.category}</TableCell>
               <TableCell>₹{item.price}</TableCell>
-              <TableCell>Active</TableCell>
+              <TableCell>
+                <span className={`px-2 py-1 rounded text-xs font-semibold ${item.availability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {item.availability ? "Available" : "Unavailable"}
+                </span>
+              </TableCell>
               <TableCell>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => startEdit(item)}>
@@ -254,6 +272,16 @@ export const AdminMenuManagementPage = () => {
               value={price}
               onChange={(event) => setPrice(event.target.value)}
             />
+            <div className="flex items-center space-x-2 py-1">
+              <input
+                type="checkbox"
+                id="edit-availability"
+                checked={availability}
+                onChange={(event) => setAvailability(event.target.checked)}
+                className="h-4 w-4"
+              />
+              <label htmlFor="edit-availability" className="text-sm font-medium">Available for order</label>
+            </div>
             <Button onClick={handleEdit} disabled={saving}>
               {saving ? "Saving..." : "Save changes"}
             </Button>

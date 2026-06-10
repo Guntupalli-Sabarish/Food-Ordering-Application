@@ -25,8 +25,8 @@ public class UserController {
 
 	@GetMapping
 	@PreAuthorize("hasRole('SUPER_ADMIN')")
-	public ResponseEntity<List<UserDTO>> listUsers() {
-		return ResponseEntity.ok(userService.listUsers());
+	public ResponseEntity<org.springframework.data.domain.Page<UserDTO>> listUsers(org.springframework.data.domain.Pageable pageable) {
+		return ResponseEntity.ok(userService.listUsers(pageable));
 	}
 
 	@GetMapping("/{id}")
@@ -37,14 +37,14 @@ public class UserController {
 
 	@PutMapping("/{id}/role")
 	@PreAuthorize("hasRole('SUPER_ADMIN')")
-	public ResponseEntity<UserDTO> updateRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
-		return ResponseEntity.ok(userService.updateRole(id, body.get("role")));
+	public ResponseEntity<UserDTO> updateRole(@PathVariable Long id, @RequestBody Map<String, String> body, org.springframework.security.core.Authentication authentication) {
+		return ResponseEntity.ok(userService.updateRole(id, body.get("role"), authentication.getName()));
 	}
 
 	@DeleteMapping("/{id}")
 	@PreAuthorize("hasRole('SUPER_ADMIN')")
-	public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-		userService.deleteUser(id);
+	public ResponseEntity<Void> deleteUser(@PathVariable Long id, org.springframework.security.core.Authentication authentication) {
+		userService.deleteUser(id, authentication.getName());
 		return ResponseEntity.noContent().build();
 	}
 }

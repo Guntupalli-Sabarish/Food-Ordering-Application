@@ -42,8 +42,39 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
+    public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("token", "");
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        response.addCookie(cookie);
         return ResponseEntity.ok(authService.logout());
+    }
+
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<AuthResponse> oauth2Exchange(@RequestBody Map<String, String> body, HttpServletResponse response) {
+        String code = body.get("code");
+        if (code == null || code.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Code is required");
+        }
+        
+        AuthResponse auth = authService.exchangeOauthCode(code);
+        if (auth == null || auth.getToken() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired authorization code");
+        }
+        
+        String cookieHeader = String.format("token=%s; Path=/; HttpOnly; Secure; SameSite=Lax", auth.getToken());
+        response.addHeader("Set-Cookie", cookieHeader);
+        
+        AuthResponse secureResponse = new AuthResponse(
+            null,
+            auth.getUserId(),
+            auth.getName(),
+            auth.getEmail(),
+            auth.getRole()
+        );
+        return ResponseEntity.ok(secureResponse);
     }
 
     @PostMapping("/forgot-password")

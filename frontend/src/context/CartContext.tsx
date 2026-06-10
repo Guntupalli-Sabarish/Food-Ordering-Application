@@ -75,18 +75,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [refresh]);
 
   const clearCart = useCallback(async () => {
+    setCartItems([]);
     if (!user) {
-      setCartItems([]);
       return;
     }
     try {
-      const items = await apiClearCart();
-      setCartItems(items);
+      await apiClearCart();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to clear cart";
-      toast({ title: "Cart update failed", description: message, variant: "destructive" });
+      console.warn("Background cart clear on server failed:", error);
     }
-  }, [toast, user]);
+  }, [user]);
 
   const doAddItem = useCallback(
     async (item: MenuItem) => {

@@ -107,7 +107,7 @@ export const CheckoutPage = () => {
       // Online payment initiation is disabled until a real payment provider is integrated.
       // COD orders are accepted immediately.
 
-      await clearCart();
+      clearCart();
       toast({ title: "Order placed successfully!", description: "Your delivery is being prepared." });
       navigate("/orders");
     } catch (error) {

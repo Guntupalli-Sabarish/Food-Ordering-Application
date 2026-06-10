@@ -5,7 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { getProfile, login as apiLogin, logout as apiLogout, register as apiRegister } from "@/apis";
+import { getProfile, login as apiLogin, logout as apiLogout, register as apiRegister, oauth2Exchange } from "@/apis";
 import type { User } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -47,12 +47,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [token, setToken] = useState<string | null>(storedAuth?.token ?? null);
   const [ready, setReady] = useState(false);
 
-  const persist = useCallback((nextUser: User, nextToken: string) => {
+  const persist = useCallback((nextUser: User) => {
     setUser(nextUser);
-    setToken(nextToken);
+    setToken(null);
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ user: nextUser, token: nextToken })
+      JSON.stringify({ user: nextUser, token: null })
     );
   }, []);
 
@@ -64,43 +64,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tokenParam = params.get("token");
-    const userIdParam = params.get("userId");
-    const nameParam = params.get("name");
-    const roleParam = params.get("role");
+    const codeParam = params.get("code");
     const isNewParam = params.get("isNew");
 
-    if (tokenParam && userIdParam && nameParam && roleParam) {
-      const parsedUser: User = {
-        id: userIdParam,
-        name: nameParam,
-        email: params.get("email") || "",
-        role: roleParam as any,
-      };
-      persist(parsedUser, tokenParam);
-      setReady(true);
-      
-      if (isNewParam === "true") {
-        toast({ title: "Welcome to FoodFlow!", description: "Your account was successfully created via Google." });
-      } else {
-        toast({ title: "Welcome back!", description: "Signed in with Google." });
-      }
-      
-      // Clean query params from URL
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
+    if (codeParam) {
+      oauth2Exchange(codeParam)
+        .then((parsedUser) => {
+          persist(parsedUser);
+          setReady(true);
+          if (isNewParam === "true") {
+            toast({ title: "Welcome to FoodFlow!", description: "Your account was successfully created via Google." });
+          } else {
+            toast({ title: "Welcome back!", description: "Signed in with Google." });
+          }
+        })
+        .catch(() => {
+          clearAuth();
+          setReady(true);
+          toast({ title: "Login failed", description: "Google authentication failed.", variant: "destructive" });
+        })
+        .finally(() => {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        });
     }
-  }, [persist, toast]);
+  }, [persist, clearAuth, toast]);
 
   useEffect(() => {
     let active = true;
     const hydrateProfile = async () => {
-      if (!token) {
-        if (active) {
-          setReady(true);
-        }
-        return;
-      }
       try {
         const profile = await getProfile();
         if (active) {
@@ -120,12 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       active = false;
     };
-  }, [token, clearAuth]);
+  }, [clearAuth]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       const response = await apiLogin(email, password);
-      persist(response.user, response.token);
+      persist(response.user);
       setReady(true);
       toast({ title: "Welcome back!", description: "Login successful." });
       return response.user;
@@ -140,8 +132,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       password: string
     ) => {
       const response = await apiRegister(name, email, password);
-      if (response.token) {
-        persist(response.user, response.token);
+      if (response.user) {
+        persist(response.user);
         toast({
           title: "Account created",
           description: "You are signed in now.",

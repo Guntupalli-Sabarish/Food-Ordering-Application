@@ -229,9 +229,9 @@ public class OrderService {
         }
     }
 
-    public List<Order> listOrdersForUser(String userEmail) {
+    public org.springframework.data.domain.Page<Order> listOrdersForUser(String userEmail, org.springframework.data.domain.Pageable pageable) {
         Long userId = resolveUserId(userEmail);
-        List<Order> orders = orderRepository.findByUserId(userId);
+        org.springframework.data.domain.Page<Order> orders = orderRepository.findByUserId(userId, pageable);
         orders.forEach(this::populateNamesIfNull);
         return orders;
     }
@@ -274,12 +274,12 @@ public class OrderService {
         return orders;
     }
 
-    public List<Order> listOrdersForAdmin(String adminEmail) {
+    public org.springframework.data.domain.Page<Order> listOrdersForAdmin(String adminEmail, org.springframework.data.domain.Pageable pageable) {
         Long adminId = resolveUserId(adminEmail);
         Long restaurantId = restaurantRepository.findByAdminId(adminId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"))
                 .getRestaurantId();
-        List<Order> orders = orderRepository.findByRestaurantId(restaurantId);
+        org.springframework.data.domain.Page<Order> orders = orderRepository.findByRestaurantId(restaurantId, pageable);
         orders.forEach(this::populateNamesIfNull);
         return orders;
     }

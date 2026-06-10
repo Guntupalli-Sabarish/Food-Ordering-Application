@@ -7,6 +7,7 @@ import com.foodorderapplication.backend.model.User;
 import com.foodorderapplication.backend.model.enums.UserRole;
 import com.foodorderapplication.backend.repository.UserRepository;
 import com.foodorderapplication.backend.security.JwtUtil;
+import com.foodorderapplication.backend.security.OauthCodeStore;
 import com.foodorderapplication.backend.util.EmailRequest;
 import com.foodorderapplication.backend.util.EmailType;
 import com.foodorderapplication.backend.util.SmtpProperties;
@@ -45,14 +46,17 @@ public class AuthService {
 
     private final Environment env;
 
+    private final OauthCodeStore oauthCodeStore;
+
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil,
-            NotificationService notificationService, SmtpProperties smtpProperties, Environment env) {
+            NotificationService notificationService, SmtpProperties smtpProperties, Environment env, OauthCodeStore oauthCodeStore) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.notificationService = notificationService;
         this.smtpProperties = smtpProperties;
         this.env = env;
+        this.oauthCodeStore = oauthCodeStore;
     }
 
     private boolean isSafeToBypass() {
@@ -80,12 +84,7 @@ public class AuthService {
         if (request.getName() != null && request.getName().trim().length() > 100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name must not exceed 100 characters");
         }
-        if (request.getPassword().length() < 6) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
-        }
-        if (request.getPassword().length() > 128) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must not exceed 128 characters");
-        }
+        validatePasswordPolicy(request.getPassword());
 
         String email = normalizeEmail(emailRaw);
         if (userRepository.existsByEmail(email)) {
@@ -99,30 +98,26 @@ public class AuthService {
         user.setRole(UserRole.CUSTOMER);
         user.setEmailVerified(false);
         String verificationToken = generateResetToken();
-        user.setVerificationToken(verificationToken);
+        user.setVerificationToken(hashToken(verificationToken));
         user.setVerificationTokenExpiresAt(LocalDateTime.now().plusHours(24));
 
         User savedUser = userRepository.save(user);
-        Map<String, Object> emailResult = null;
         try {
-            emailResult = sendVerificationEmail(savedUser, verificationToken);
+            sendVerificationEmail(savedUser, verificationToken);
         } catch (Exception ex) {
-            // In case the notification layer still throws, catch here to avoid failing registration
-            emailResult = Map.of("status", "FAILED", "error", ex.getMessage());
+            org.slf4j.LoggerFactory.getLogger(AuthService.class)
+                .warn("Failed to send verification email for user {}: {}", savedUser.getEmail(), ex.getMessage());
         }
 
-        // If emailResult indicates failure or did not report success, set emailVerified true ONLY if bypass is active
-        if (emailResult == null || !"SENT".equals(emailResult.get("status"))) {
-            if (isSafeToBypass()) {
-                savedUser.setEmailVerified(true);
-                savedUser.setVerificationToken(null);
-                savedUser.setVerificationTokenExpiresAt(null);
-                userRepository.save(savedUser);
-            }
+        if (isSafeToBypass()) {
+            savedUser.setEmailVerified(true);
+            savedUser.setVerificationToken(null);
+            savedUser.setVerificationTokenExpiresAt(null);
+            savedUser = userRepository.save(savedUser);
         }
 
         String token = savedUser.isEmailVerified()
-                ? jwtUtil.generateToken(savedUser.getEmail(), savedUser.getRole().name())
+                ? jwtUtil.generateToken(savedUser.getEmail(), savedUser.getRole().name(), savedUser.getTokenVersion())
                 : null;
         return toAuthResponse(savedUser, token);
     }
@@ -156,7 +151,7 @@ public class AuthService {
             }
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getTokenVersion());
         return toAuthResponse(user, token);
     }
 
@@ -172,8 +167,8 @@ public class AuthService {
         String normalizedEmail = normalizeEmail(email);
         userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
             String token = generateResetToken();
-            user.setResetToken(token);
-            user.setResetTokenExpiresAt(LocalDateTime.now().plusHours(1));
+            user.setResetToken(hashToken(token));
+            user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(15));
             userRepository.save(user);
 
             String resetLink = appFrontendResetUrl
@@ -203,21 +198,27 @@ public class AuthService {
 
     public Map<String, String> resetPassword(String email, String token, String newPassword) {
         if (isBlank(email) || isBlank(token) || isBlank(newPassword)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Email, token, and new password are required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request or token");
         }
 
         String normalizedEmail = normalizeEmail(email);
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request or token");
+        }
 
-        if (user.getResetToken() == null || !user.getResetToken().equals(token)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reset token");
+        String hashedTokenInput = hashToken(token);
+        if (user.getResetToken() == null || !java.security.MessageDigest.isEqual(
+                user.getResetToken().getBytes(StandardCharsets.UTF_8),
+                hashedTokenInput.getBytes(StandardCharsets.UTF_8))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request or token");
         }
 
         if (user.getResetTokenExpiresAt() == null || user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reset token expired");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request or token");
         }
+
+        validatePasswordPolicy(newPassword);
 
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setResetToken(null);
@@ -225,6 +226,7 @@ public class AuthService {
         user.setEmailVerified(true);
         user.setVerificationToken(null);
         user.setVerificationTokenExpiresAt(null);
+        user.setTokenVersion(user.getTokenVersion() != null ? user.getTokenVersion() + 1 : 1);
         userRepository.save(user);
 
         return Map.of("message", "Password reset successfully");
@@ -250,8 +252,9 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token");
         }
 
+        String hashedToken = hashToken(token);
         User user = userRepository
-                .findByVerificationToken(token)
+                .findByVerificationToken(hashedToken)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token"));
 
         LocalDateTime expiresAt = user.getVerificationTokenExpiresAt();
@@ -286,7 +289,9 @@ public class AuthService {
 
             String newPassword = updates.get("password");
             if (!isBlank(newPassword)) {
+                validatePasswordPolicy(newPassword);
                 user.setPassword(passwordEncoder.encode(newPassword));
+                user.setTokenVersion(user.getTokenVersion() != null ? user.getTokenVersion() + 1 : 1);
             }
         }
 
@@ -344,9 +349,9 @@ public class AuthService {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private java.util.Map<String, Object> sendVerificationEmail(User user, String token) {
+    private void sendVerificationEmail(User user, String token) {
         if (user == null || isBlank(user.getEmail()) || isBlank(token)) {
-            return java.util.Collections.emptyMap();
+            return;
         }
 
         String verificationLink = appBaseUrl + "/api/auth/verify-email?token=" + token;
@@ -357,6 +362,30 @@ public class AuthService {
         request.setContext(Map.of(
                 "name", user.getName() == null ? "Customer" : user.getName(),
                 "verificationLink", verificationLink));
-        return notificationService.sendEmail(request);
+        notificationService.sendEmail(request);
+    }
+
+    private void validatePasswordPolicy(String password) {
+        if (password == null || password.length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
+        }
+        if (password.length() > 128) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must not exceed 128 characters");
+        }
+    }
+
+    private String hashToken(String token) {
+        if (token == null) return null;
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to hash token", ex);
+        }
+    }
+
+    public AuthResponse exchangeOauthCode(String code) {
+        return oauthCodeStore.exchange(code);
     }
 }

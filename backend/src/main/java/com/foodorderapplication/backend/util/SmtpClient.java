@@ -28,11 +28,22 @@ public class SmtpClient {
     }
 
     public void send(String to, String subject, String body) {
-        if (properties.getHost() == null || properties.getHost().isBlank()) {
-            throw new IllegalStateException("SMTP host is not configured");
-        }
         if (to == null || to.isBlank()) {
             throw new IllegalArgumentException("Recipient address is required");
+        }
+
+        // Validate recipient email format with a strict parser
+        if (!to.matches("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$")) {
+            throw new IllegalArgumentException("Invalid recipient email format");
+        }
+
+        // Sanitize header values to reject carriage return (\r) and line feed (\n) characters
+        if (to.contains("\r") || to.contains("\n") || (subject != null && (subject.contains("\r") || subject.contains("\n")))) {
+            throw new IllegalArgumentException("CRLF injection detected in headers");
+        }
+
+        if (properties.getHost() == null || properties.getHost().isBlank()) {
+            throw new IllegalStateException("SMTP host is not configured");
         }
 
         String from = properties.getFrom();

@@ -33,14 +33,15 @@ public class MenuController {
 
 	@GetMapping("/api/admin/menu")
 	@PreAuthorize("hasRole('ADMIN')")
-	public ResponseEntity<List<MenuItemDTO>> listMenuItemsForAdmin(Authentication authentication,
+	public ResponseEntity<org.springframework.data.domain.Page<MenuItemDTO>> listMenuItemsForAdmin(Authentication authentication,
 			@RequestParam(required = false) Long restaurantId,
 			@RequestParam(required = false) String itemName,
 			@RequestParam(required = false) Boolean available,
 			@RequestParam(required = false) BigDecimal minPrice,
-			@RequestParam(required = false) BigDecimal maxPrice) {
+			@RequestParam(required = false) BigDecimal maxPrice,
+			org.springframework.data.domain.Pageable pageable) {
 		return ResponseEntity.ok(menuService.listMenuItemsForAdmin(authentication.getName(), restaurantId, itemName,
-				available, minPrice, maxPrice));
+				available, minPrice, maxPrice, pageable));
 	}
 
 	@PutMapping("/api/admin/menu/{id}")
@@ -59,12 +60,13 @@ public class MenuController {
 
 	@GetMapping("/api/customer/menu/{restaurantId}")
 	@PreAuthorize("hasRole('CUSTOMER')")
-	public ResponseEntity<List<MenuItemDTO>> listMenuItemsForCustomer(@PathVariable Long restaurantId,
+	public ResponseEntity<org.springframework.data.domain.Page<MenuItemDTO>> listMenuItemsForCustomer(@PathVariable Long restaurantId,
 			@RequestParam(required = false) String itemName,
 			@RequestParam(required = false) Boolean available,
 			@RequestParam(required = false) BigDecimal minPrice,
-			@RequestParam(required = false) BigDecimal maxPrice) {
+			@RequestParam(required = false) BigDecimal maxPrice,
+			org.springframework.data.domain.Pageable pageable) {
 		return ResponseEntity.ok(menuService.listMenuItemsForCustomer(restaurantId, itemName, available, minPrice,
-				maxPrice));
+				maxPrice, pageable));
 	}
 }

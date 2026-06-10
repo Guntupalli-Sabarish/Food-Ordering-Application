@@ -19,8 +19,9 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 			+ "and (:cuisine is null or lower(r.cuisine) like lower(concat('%', :cuisine, '%'))) "
 			+ "and (:address is null or lower(r.address) like lower(concat('%', :address, '%'))) "
 			+ "and (:active is null or r.active = :active)")
-	List<Restaurant> search(@Param("name") String name,
+	org.springframework.data.domain.Page<Restaurant> search(@Param("name") String name,
 			@Param("cuisine") String cuisine,
 			@Param("address") String address,
-			@Param("active") Boolean active);
+			@Param("active") Boolean active,
+			org.springframework.data.domain.Pageable pageable);
 }

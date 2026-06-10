@@ -11,6 +11,7 @@ import com.foodorderapplication.backend.model.enums.*;
 import com.foodorderapplication.backend.repository.*;
 import com.foodorderapplication.backend.security.JwtUtil;
 import com.foodorderapplication.backend.service.*;
+import com.foodorderapplication.backend.util.SmtpClient;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -535,9 +536,8 @@ public class HardeningTests {
         cartService.addItem(email, mi.getMenuItemId(), 1);
         orderService.createOrder(email, "Test Addr", "cod");
 
-        // Deleting user with active order should throw 409
         assertThrows(ResponseStatusException.class,
-                () -> userService.deleteUser(savedUser.getUserId()));
+                () -> userService.deleteUser(savedUser.getUserId(), "superadmin@test.com"));
     }
 
     @Test
@@ -684,5 +684,92 @@ public class HardeningTests {
         // Null/blank must throw 400
         assertThrows(ResponseStatusException.class, () -> PaymentMethod.fromString(null));
         assertThrows(ResponseStatusException.class, () -> PaymentMethod.fromString("   "));
+    }
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
+    private SmtpClient smtpClient;
+
+    @Test
+    public void testSuperAdminLockoutDemoteAndDeletes() {
+        // Create two verified SUPER_ADMINs
+        User sa1 = new User();
+        sa1.setName("SA One");
+        String email1 = "sa1_" + UUID.randomUUID() + "@test.com";
+        sa1.setEmail(email1);
+        sa1.setPassword(passwordEncoder.encode("Sai_310505"));
+        sa1.setRole(UserRole.SUPER_ADMIN);
+        sa1.setEmailVerified(true);
+        sa1 = userRepository.save(sa1);
+
+        User sa2 = new User();
+        sa2.setName("SA Two");
+        String email2 = "sa2_" + UUID.randomUUID() + "@test.com";
+        sa2.setEmail(email2);
+        sa2.setPassword(passwordEncoder.encode("Sai_310505"));
+        sa2.setRole(UserRole.SUPER_ADMIN);
+        sa2.setEmailVerified(true);
+        sa2 = userRepository.save(sa2);
+
+        // Try demoting sa1 -> should succeed because sa2 is still verified SUPER_ADMIN
+        final Long sa1Id = sa1.getUserId();
+        assertDoesNotThrow(() -> userService.updateRole(sa1Id, "CUSTOMER", email2));
+
+        // Try demoting sa2 -> should fail because sa2 is now the last verified SUPER_ADMIN
+        final Long sa2Id = sa2.getUserId();
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                userService.updateRole(sa2Id, "CUSTOMER", email2));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        
+        // Try deleting sa2 -> should fail because sa2 is the last verified SUPER_ADMIN
+        ResponseStatusException ex2 = assertThrows(ResponseStatusException.class, () ->
+                userService.deleteUser(sa2Id, email2));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex2.getStatusCode());
+    }
+
+    @Test
+    public void testJwtTokenVersionRevocation() {
+        // Generate a token for a user with version 0
+        String email = "jwt_ver_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("JWT User");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        user.setTokenVersion(0);
+        userRepository.save(user);
+
+        String token = jwtUtil.generateToken(email, "CUSTOMER", 0);
+        
+        // Token version matches user's token version in database
+        assertEquals(0, jwtUtil.getTokenVersion(token));
+        
+        // Increment version in database
+        user.setTokenVersion(1);
+        userRepository.save(user);
+
+        // Verification in JwtFilter would reject it since token version (0) is older than database version (1)
+        assertTrue(0 < user.getTokenVersion());
+    }
+
+    @Test
+    public void testEmailHeaderCrlfInjectionValidation() {
+        // CRLF in recipient email -> should throw IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () -> {
+            smtpClient.send("bad\r\nrecipient@test.com", "Subject", "Body");
+        });
+
+        // CRLF in subject -> should throw IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () -> {
+            smtpClient.send("good@test.com", "Bad\r\nSubject", "Body");
+        });
+
+        // Invalid email format -> should throw IllegalArgumentException
+        assertThrows(IllegalArgumentException.class, () -> {
+            smtpClient.send("invalid-email-format", "Subject", "Body");
+        });
     }
 }

@@ -24,22 +24,47 @@ public class UserService {
 		this.orderRepository = orderRepository;
 	}
 
-	public List<UserDTO> listUsers() {
-		return userRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
+	public org.springframework.data.domain.Page<UserDTO> listUsers(org.springframework.data.domain.Pageable pageable) {
+		return userRepository.findAll(pageable).map(this::toDto);
 	}
 
 	public UserDTO getUser(Long userId) {
 		return toDto(findUser(userId));
 	}
 
-	public UserDTO updateRole(Long userId, String role) {
+	public UserDTO updateRole(Long userId, String role, String callerEmail) {
 		User user = findUser(userId);
-		user.setRole(parseRole(role));
+		UserRole targetRole = parseRole(role);
+		
+		if (targetRole == UserRole.SUPER_ADMIN) {
+			User caller = userRepository.findByEmail(callerEmail)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Caller not found"));
+			if (caller.getRole() != UserRole.SUPER_ADMIN) {
+				throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only SUPER_ADMIN can assign SUPER_ADMIN role");
+			}
+			org.slf4j.LoggerFactory.getLogger(UserService.class)
+					.info("AUDIT: User {} elevated User {} to SUPER_ADMIN", callerEmail, user.getEmail());
+		}
+
+		if (user.getRole() == UserRole.SUPER_ADMIN && targetRole != UserRole.SUPER_ADMIN) {
+			if (user.isEmailVerified() && userRepository.countByRoleAndEmailVerifiedTrue(UserRole.SUPER_ADMIN) <= 1) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot demote the last verified SUPER_ADMIN");
+			}
+		}
+
+		user.setRole(targetRole);
+		user.setTokenVersion(user.getTokenVersion() != null ? user.getTokenVersion() + 1 : 1);
 		return toDto(userRepository.save(user));
 	}
 
-	public void deleteUser(Long userId) {
+	public void deleteUser(Long userId, String callerEmail) {
 		User user = findUser(userId);
+		if (user.getRole() == UserRole.SUPER_ADMIN) {
+			if (user.isEmailVerified() && userRepository.countByRoleAndEmailVerifiedTrue(UserRole.SUPER_ADMIN) <= 1) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete the last verified SUPER_ADMIN");
+			}
+		}
+
 		// Guard: do not delete if there are non-terminal orders for this user
 		if (orderRepository.existsByUserIdAndOrderStatusNotIn(user.getUserId(), TERMINAL_STATUSES)) {
 			throw new ResponseStatusException(HttpStatus.CONFLICT,

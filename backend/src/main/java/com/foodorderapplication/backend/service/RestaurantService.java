@@ -43,10 +43,10 @@ public class RestaurantService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<RestaurantDTO> listRestaurants(String name, String cuisine, String address, Boolean active) {
-		List<Restaurant> restaurants = restaurantRepository.search(cleanFilter(name), cleanFilter(cuisine),
-				cleanFilter(address), active);
-		return restaurants.stream().map(this::toDto).collect(Collectors.toList());
+	public org.springframework.data.domain.Page<RestaurantDTO> listRestaurants(String name, String cuisine, String address, Boolean active, org.springframework.data.domain.Pageable pageable) {
+		org.springframework.data.domain.Page<Restaurant> restaurants = restaurantRepository.search(cleanFilter(name), cleanFilter(cuisine),
+				cleanFilter(address), active, pageable);
+		return restaurants.map(this::toDto);
 	}
 
 	public RestaurantDTO updateRestaurant(Long id, RestaurantDTO request) {
@@ -120,10 +120,10 @@ public class RestaurantService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<RestaurantDTO> listRestaurantsForCustomer(String name, String cuisine, String address) {
-		List<Restaurant> restaurants = restaurantRepository.search(cleanFilter(name), cleanFilter(cuisine),
-				cleanFilter(address), true);
-		return restaurants.stream().map(this::toDto).collect(Collectors.toList());
+	public org.springframework.data.domain.Page<RestaurantDTO> listRestaurantsForCustomer(String name, String cuisine, String address, org.springframework.data.domain.Pageable pageable) {
+		org.springframework.data.domain.Page<Restaurant> restaurants = restaurantRepository.search(cleanFilter(name), cleanFilter(cuisine),
+				cleanFilter(address), true, pageable);
+		return restaurants.map(this::toDto);
 	}
 
 	@Transactional(readOnly = true)

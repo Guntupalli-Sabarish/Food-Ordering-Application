@@ -24,12 +24,15 @@ public class NotificationService {
         this.smtpProperties = smtpProperties;
     }
 
-    public Map<String, Object> sendEmail(EmailRequest request) {
+    @org.springframework.scheduling.annotation.Async
+    public void sendEmail(EmailRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Request body is required");
+            logger.warn("Attempted to send null email request");
+            return;
         }
         if (request.getTo() == null || request.getTo().isBlank()) {
-            throw new IllegalArgumentException("Recipient address is required");
+            logger.warn("Attempted to send email with empty recipient");
+            return;
         }
 
         String subject = request.getSubject();
@@ -42,22 +45,16 @@ public class NotificationService {
             body = buildBody(type, context, body);
         }
 
-        logger.info("Sending email to {} with type {}", request.getTo(), type);
-        Map<String, Object> response = new HashMap<>();
+        logger.info("Sending email to {} with type {} asynchronously", request.getTo(), type);
         if (!isSmtpConfigured()) {
             logger.info("SMTP is not configured; skipping email send to {}", request.getTo());
-            throw new IllegalStateException("SMTP is not configured");
+            return;
         }
         try {
             smtpClient.send(request.getTo(), subject, body);
-            response.put("messageId", UUID.randomUUID().toString());
-            response.put("to", request.getTo());
-            response.put("type", type == null ? "CUSTOM" : type.name());
-            response.put("status", "SENT");
-            return response;
+            logger.info("Email successfully sent to {} with type {}", request.getTo(), type);
         } catch (Exception ex) {
-            logger.warn("Failed to send email to {}: {}", request.getTo(), ex.getMessage());
-            throw new RuntimeException("SMTP send failed: " + ex.getMessage(), ex);
+            logger.error("Failed to send email asynchronously to {}: {}", request.getTo(), ex.getMessage(), ex);
         }
     }
 

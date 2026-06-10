@@ -31,9 +31,10 @@ public class NotificationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse> sendEmail(@RequestBody EmailRequest request, HttpServletRequest httpRequest) {
         logger.info("Send email request received by user with role {} or {}", UserRole.ADMIN, UserRole.SUPER_ADMIN);
+        notificationService.sendEmail(request);
         ApiResponse response = ApiResponse.ok(
-                "Email sent",
-                notificationService.sendEmail(request),
+                "Email sending initiated",
+                java.util.Map.of("status", "QUEUED"),
                 httpRequest.getRequestURI(),
                 HttpStatus.OK.value()
         );

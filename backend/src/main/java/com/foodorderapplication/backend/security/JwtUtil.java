@@ -38,6 +38,10 @@ public class JwtUtil {
     }
 
     public String generateToken(String subject, String role) {
+        return generateToken(subject, role, 0);
+    }
+
+    public String generateToken(String subject, String role, Integer tokenVersion) {
         long nowSeconds = Instant.now().getEpochSecond();
         long expSeconds = nowSeconds + (expirationMs / 1000);
 
@@ -48,6 +52,7 @@ public class JwtUtil {
         Map<String, Object> payload = new HashMap<>();
         payload.put("sub", subject);
         payload.put("role", role);
+        payload.put("version", tokenVersion != null ? tokenVersion : 0);
         payload.put("iat", nowSeconds);
         payload.put("exp", expSeconds);
 
@@ -79,6 +84,11 @@ public class JwtUtil {
     public String getRole(String token) {
         Object role = getAllClaims(token).get("role");
         return role == null ? null : String.valueOf(role);
+    }
+
+    public Integer getTokenVersion(String token) {
+        Object version = getAllClaims(token).get("version");
+        return version == null ? 0 : ((Number) version).intValue();
     }
 
     private Map<String, Object> getAllClaims(String token) {

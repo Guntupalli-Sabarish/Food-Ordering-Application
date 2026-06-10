@@ -51,6 +51,9 @@ public class User {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	@Column(name = "token_version", nullable = false)
+	private Integer tokenVersion = 0;
+
 	@PrePersist
 	protected void onCreate() {
 		if (createdAt == null) {
@@ -61,6 +64,9 @@ public class User {
 		}
 		if (!emailVerified) {
 			emailVerified = false;
+		}
+		if (tokenVersion == null) {
+			tokenVersion = 0;
 		}
 	}
 
@@ -150,6 +156,14 @@ public class User {
 
 	public void setCreatedAt(LocalDateTime createdAt) {
 		this.createdAt = createdAt;
+	}
+
+	public Integer getTokenVersion() {
+		return tokenVersion;
+	}
+
+	public void setTokenVersion(Integer tokenVersion) {
+		this.tokenVersion = tokenVersion;
 	}
 
 }

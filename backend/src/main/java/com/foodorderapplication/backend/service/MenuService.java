@@ -50,8 +50,8 @@ public class MenuService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<MenuItemDTO> listMenuItemsForAdmin(String adminEmail, Long restaurantId, String itemName,
-			Boolean available, BigDecimal minPrice, BigDecimal maxPrice) {
+	public org.springframework.data.domain.Page<MenuItemDTO> listMenuItemsForAdmin(String adminEmail, Long restaurantId, String itemName,
+			Boolean available, BigDecimal minPrice, BigDecimal maxPrice, org.springframework.data.domain.Pageable pageable) {
 		Long adminId = resolveAdminId(adminEmail);
 		Long resolvedRestaurantId = restaurantId;
 		if (resolvedRestaurantId == null) {
@@ -62,9 +62,9 @@ public class MenuService {
 			validateId(resolvedRestaurantId, "restaurantId");
 			verifyAdminOwnership(adminId, resolvedRestaurantId);
 		}
-		List<MenuItem> menuItems = menuItemRepository.searchByRestaurant(resolvedRestaurantId, cleanFilter(itemName),
-				available, minPrice, maxPrice);
-		return menuItems.stream().map(this::toDto).collect(Collectors.toList());
+		org.springframework.data.domain.Page<MenuItem> menuItems = menuItemRepository.searchByRestaurant(resolvedRestaurantId, cleanFilter(itemName),
+				available, minPrice, maxPrice, pageable);
+		return menuItems.map(this::toDto);
 	}
 
 	public MenuItemDTO updateMenuItem(String adminEmail, Long menuItemId, MenuItemDTO request) {
@@ -102,8 +102,8 @@ public class MenuService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<MenuItemDTO> listMenuItemsForCustomer(Long restaurantId, String itemName, Boolean available,
-			BigDecimal minPrice, BigDecimal maxPrice) {
+	public org.springframework.data.domain.Page<MenuItemDTO> listMenuItemsForCustomer(Long restaurantId, String itemName, Boolean available,
+			BigDecimal minPrice, BigDecimal maxPrice, org.springframework.data.domain.Pageable pageable) {
 		validateId(restaurantId, "restaurantId");
 		Restaurant restaurant = restaurantRepository.findById(restaurantId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found"));
@@ -111,9 +111,9 @@ public class MenuService {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Restaurant not found");
 		}
 		Boolean searchAvailable = available != null ? available : true;
-		List<MenuItem> menuItems = menuItemRepository.searchByRestaurant(restaurantId, cleanFilter(itemName),
-				searchAvailable, minPrice, maxPrice);
-		return menuItems.stream().map(this::toDto).collect(Collectors.toList());
+		org.springframework.data.domain.Page<MenuItem> menuItems = menuItemRepository.searchByRestaurant(restaurantId, cleanFilter(itemName),
+				searchAvailable, minPrice, maxPrice, pageable);
+		return menuItems.map(this::toDto);
 	}
 
 	private Restaurant getRestaurantForAdmin(Long adminId, Long restaurantId) {

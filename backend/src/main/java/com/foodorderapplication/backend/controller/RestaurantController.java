@@ -31,11 +31,12 @@ public class RestaurantController {
 
 	@GetMapping("/api/superadmin/restaurants")
 	@PreAuthorize("hasRole('SUPER_ADMIN')")
-	public ResponseEntity<List<RestaurantDTO>> listRestaurants(@RequestParam(required = false) String name,
+	public ResponseEntity<org.springframework.data.domain.Page<RestaurantDTO>> listRestaurants(@RequestParam(required = false) String name,
 			@RequestParam(required = false) String cuisine,
 			@RequestParam(required = false) String address,
-			@RequestParam(required = false) Boolean active) {
-		return ResponseEntity.ok(restaurantService.listRestaurants(name, cuisine, address, active));
+			@RequestParam(required = false) Boolean active,
+			org.springframework.data.domain.Pageable pageable) {
+		return ResponseEntity.ok(restaurantService.listRestaurants(name, cuisine, address, active, pageable));
 	}
 
 	@PutMapping("/api/superadmin/restaurants/{id}")
@@ -74,10 +75,11 @@ public class RestaurantController {
 
 	@GetMapping("/api/customer/restaurants")
 	@PreAuthorize("hasRole('CUSTOMER')")
-	public ResponseEntity<List<RestaurantDTO>> listRestaurantsForCustomer(@RequestParam(required = false) String name,
+	public ResponseEntity<org.springframework.data.domain.Page<RestaurantDTO>> listRestaurantsForCustomer(@RequestParam(required = false) String name,
 			@RequestParam(required = false) String cuisine,
-			@RequestParam(required = false) String address) {
-		return ResponseEntity.ok(restaurantService.listRestaurantsForCustomer(name, cuisine, address));
+			@RequestParam(required = false) String address,
+			org.springframework.data.domain.Pageable pageable) {
+		return ResponseEntity.ok(restaurantService.listRestaurantsForCustomer(name, cuisine, address, pageable));
 	}
 
 	@GetMapping("/api/customer/restaurants/{id}")

@@ -3,6 +3,7 @@ package com.foodorderapplication.backend.security;
 import com.foodorderapplication.backend.model.User;
 import com.foodorderapplication.backend.model.enums.UserRole;
 import com.foodorderapplication.backend.repository.UserRepository;
+import com.foodorderapplication.backend.dto.auth.AuthResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,14 +24,16 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final OauthCodeStore oauthCodeStore;
 
     @Value("${app.frontend.login-url:http://localhost:5173/login}")
     private String frontendLoginUrl;
 
-    public OAuth2AuthenticationSuccessHandler(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public OAuth2AuthenticationSuccessHandler(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, OauthCodeStore oauthCodeStore) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.oauthCodeStore = oauthCodeStore;
     }
 
     @Override
@@ -61,14 +64,18 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             return userRepository.save(newUser);
         });
 
-        String jwt = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        String jwt = jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getTokenVersion());
+        AuthResponse authResponse = new AuthResponse(
+            jwt,
+            user.getUserId(),
+            user.getName(),
+            user.getEmail(),
+            user.getRole().name()
+        );
+        String tempCode = oauthCodeStore.generateCode(authResponse);
 
         String redirectUrl = frontendLoginUrl 
-            + "?token=" + encode(jwt)
-            + "&userId=" + user.getUserId()
-            + "&name=" + encode(user.getName())
-            + "&role=" + user.getRole().name()
-            + "&email=" + encode(user.getEmail())
+            + "?code=" + encode(tempCode)
             + "&isNew=" + isNewUser;
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);

@@ -157,6 +157,7 @@ const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> =>
 
   const response = await fetch(buildUrl(path), {
     ...options,
+    credentials: "include",
     headers,
   });
 
@@ -236,6 +237,7 @@ const mapMenuItem = (dto: MenuItemDTO): MenuItem => ({
   isVeg: false,
   category: dto.category ?? "Main",
   image: getMenuItemImage(String(dto.menuItemId ?? ""), dto.itemName ?? "", dto.category ?? ""),
+  availability: dto.availability !== false,
 });
 
 const mapUser = (dto: UserDTO): User => ({
@@ -322,6 +324,19 @@ export const resetPassword = async (
     method: "POST",
     body: JSON.stringify({ email, token, newPassword }),
   });
+};
+
+export const oauth2Exchange = async (code: string) => {
+  const data = await apiRequest<AuthResponse>("/api/auth/oauth2/exchange", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+  return {
+    id: String(data.userId ?? ""),
+    name: data.name,
+    email: data.email,
+    role: data.role,
+  } as User;
 };
 
 export const getProfile = async (_email?: string) => {

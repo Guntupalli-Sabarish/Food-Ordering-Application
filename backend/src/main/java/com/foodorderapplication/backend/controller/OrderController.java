@@ -40,8 +40,8 @@ public class OrderController {
 
     @GetMapping("/api/customer/orders")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<List<Order>> listOrders(Authentication authentication) {
-        return ResponseEntity.ok(orderService.listOrdersForUser(authentication.getName()));
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> listOrders(Authentication authentication, org.springframework.data.domain.Pageable pageable) {
+        return ResponseEntity.ok(orderService.listOrdersForUser(authentication.getName(), pageable));
     }
 
     @GetMapping("/api/customer/orders/{id}")
@@ -66,8 +66,8 @@ public class OrderController {
     // Admin endpoints
     @GetMapping("/api/admin/orders")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Order>> listAllOrders(Authentication authentication) {
-        return ResponseEntity.ok(orderService.listOrdersForAdmin(authentication.getName()));
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> listAllOrders(Authentication authentication, org.springframework.data.domain.Pageable pageable) {
+        return ResponseEntity.ok(orderService.listOrdersForAdmin(authentication.getName(), pageable));
     }
 
     @PutMapping("/api/admin/orders/{id}/status")

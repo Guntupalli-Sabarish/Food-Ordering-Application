@@ -29,39 +29,60 @@ import org.springframework.beans.factory.annotation.Value;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+        private final org.springframework.core.env.Environment env;
+
+        public SecurityConfig(org.springframework.core.env.Environment env) {
+                this.env = env;
+        }
+
         @Value("${app.frontend.allowed-origins:http://localhost:5173,http://localhost:5174}")
         private String allowedOriginsRaw;
         @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter, OAuth2AuthenticationSuccessHandler oAuth2SuccessHandler)
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter, RateLimitFilter rateLimitFilter, OAuth2AuthenticationSuccessHandler oAuth2SuccessHandler)
                         throws Exception {
+                boolean isDev = env.getActiveProfiles() != null &&
+                        (java.util.Arrays.asList(env.getActiveProfiles()).contains("dev") || 
+                         java.util.Arrays.asList(env.getActiveProfiles()).contains("default") ||
+                         !java.util.Arrays.asList(env.getActiveProfiles()).contains("prod"));
+
                 http.csrf(csrf -> csrf.disable())
                                 .cors(Customizer.withDefaults())
                                 .sessionManagement(
                                                 session -> session
                                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(
-                                                auth -> auth.requestMatchers(
-                                                                "/api/auth/register",
-                                                                "/api/auth/login",
-                                                                "/api/auth/forgot-password",
-                                                                "/api/auth/reset-password",
-                                                                "/api/auth/verify-email",
-                                                                "/api/health",
-                                                                "/api/config",
-                                                                "/swagger-ui/**",
-                                                                "/v3/api-docs/**",
-                                                                "/swagger-resources/**",
-                                                                "/webjars/**",
-                                                                "/oauth2/**",
-                                                                "/login/oauth2/**")
-                                                                .permitAll()
-                                                                .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
-                                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                                                                .requestMatchers("/api/superadmin/**").hasRole("SUPER_ADMIN")
-                                                                .anyRequest()
-                                                                .authenticated())
+                                                auth -> {
+                                                        var registry = auth.requestMatchers(
+                                                                        "/api/auth/register",
+                                                                        "/api/auth/login",
+                                                                        "/api/auth/logout",
+                                                                        "/api/auth/forgot-password",
+                                                                        "/api/auth/reset-password",
+                                                                        "/api/auth/verify-email",
+                                                                        "/api/auth/oauth2/exchange",
+                                                                        "/api/health",
+                                                                        "/oauth2/**",
+                                                                        "/login/oauth2/**")
+                                                                        .permitAll();
+                                                        
+                                                        if (isDev) {
+                                                                registry.requestMatchers(
+                                                                                "/swagger-ui/**",
+                                                                                "/v3/api-docs/**",
+                                                                                "/swagger-resources/**",
+                                                                                "/webjars/**")
+                                                                                .permitAll();
+                                                        }
+
+                                                        registry.requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+                                                                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                                                                        .requestMatchers("/api/superadmin/**").hasRole("SUPER_ADMIN")
+                                                                        .anyRequest()
+                                                                        .authenticated();
+                                                })
                                 .oauth2Login(oauth -> oauth
                                                 .successHandler(oAuth2SuccessHandler))
+                                .addFilterBefore(rateLimitFilter, JwtFilter.class)
                                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();

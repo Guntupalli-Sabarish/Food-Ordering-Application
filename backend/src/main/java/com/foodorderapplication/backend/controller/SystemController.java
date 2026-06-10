@@ -31,6 +31,7 @@ public class SystemController {
     }
 
     @GetMapping("/config")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse> config(HttpServletRequest request) {
         logger.info("Config requested");
         ApiResponse response = ApiResponse.ok("Configuration", systemService.getConfig(), request.getRequestURI(), HttpStatus.OK.value());
