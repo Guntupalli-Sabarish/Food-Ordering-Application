@@ -193,6 +193,8 @@ public class AuthService {
                 notificationService.sendEmail(request);
             } catch (Exception ex) {
                 // Keep the flow usable locally even if SMTP is not available.
+                org.slf4j.LoggerFactory.getLogger(AuthService.class)
+                    .warn("Failed to send password reset email to {}: {}", user.getEmail(), ex.getMessage(), ex);
             }
         });
 
