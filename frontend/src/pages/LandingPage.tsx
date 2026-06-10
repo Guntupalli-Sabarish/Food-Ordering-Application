@@ -548,7 +548,7 @@ export const LandingPage = () => {
           {/* Hero content */}
           <div style={{
             position: "relative", zIndex: 10, maxWidth: 920, margin: "0 auto",
-            padding: "0 24px", height: "100%",
+            padding: "80px 24px 32px", height: "100%",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             textAlign: "center",
           }}>
@@ -620,57 +620,50 @@ export const LandingPage = () => {
                 >{tag}</button>
               ))}
             </div>
-          </div>
 
-          {/* Scroll cue (smooth scroll button) */}
-          <button 
-            onClick={() => {
-              const nextSection = document.getElementById("categories");
-              if (nextSection) {
-                nextSection.scrollIntoView({ behavior: "smooth" });
-              }
-            }}
-            className="lp-float" 
-            style={{
-              position: "absolute", bottom: 72, left: "50%", transform: "translateX(-50%)",
-              color: "rgba(255,255,255,.55)", fontSize: 13, textAlign: "center", zIndex: 10,
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-              background: "none", border: "none", cursor: "pointer", padding: 0
-            }}
-          >
-            <span>Scroll down</span><ChevronDown size={18} />
-          </button>
-
-          {/* Centered slide dots */}
-          <div style={{
-            position: "absolute",
-            bottom: 20,
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: 10,
-            zIndex: 10,
-            background: "rgba(0, 0, 0, 0.3)",
-            padding: "8px 16px",
-            borderRadius: "100px",
-            backdropFilter: "blur(4px)"
-          }}>
-            {HERO_IMAGES.map((_, i) => (
+            {/* Scroll cue + slide dots — in normal flow, below chips */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginTop: 32 }}>
+              {/* Scroll down label */}
               <button
-                key={i}
-                onClick={() => setHeroIdx(i)}
-                style={{
-                  width: i === heroIdx ? 28 : 10,
-                  height: 10,
-                  borderRadius: 5,
-                  background: i === heroIdx ? "#f97316" : "rgba(255, 255, 255, 0.5)",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  padding: 0
+                className="lp-float"
+                onClick={() => {
+                  const nextSection = document.getElementById("categories");
+                  if (nextSection) nextSection.scrollIntoView({ behavior: "smooth" });
                 }}
-              />
-            ))}
+                style={{
+                  color: "rgba(255,255,255,.6)", fontSize: 12, fontWeight: 500,
+                  letterSpacing: 1, textTransform: "uppercase",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                  background: "none", border: "none", cursor: "pointer", padding: 0,
+                  fontFamily: "inherit",
+                }}
+              >
+                <span>Scroll down</span>
+                <ChevronDown size={16} />
+              </button>
+
+              {/* Slide dots */}
+              <div style={{
+                display: "flex", gap: 8,
+                background: "rgba(0,0,0,0.3)", padding: "6px 14px",
+                borderRadius: 100, backdropFilter: "blur(4px)",
+              }}>
+                {HERO_IMAGES.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setHeroIdx(i)}
+                    style={{
+                      width: i === heroIdx ? 24 : 8,
+                      height: 8,
+                      borderRadius: 4,
+                      background: i === heroIdx ? "#f97316" : "rgba(255,255,255,0.5)",
+                      border: "none", cursor: "pointer", padding: 0,
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
