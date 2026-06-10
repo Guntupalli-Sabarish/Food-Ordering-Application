@@ -103,7 +103,7 @@ export const CheckoutPage = () => {
 
     try {
       setSubmitting(true);
-      const order = await placeOrder(deliveryAddress, paymentMethod);
+      await placeOrder(deliveryAddress, paymentMethod);
       // Online payment initiation is disabled until a real payment provider is integrated.
       // COD orders are accepted immediately.
 

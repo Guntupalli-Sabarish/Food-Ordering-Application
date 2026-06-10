@@ -126,10 +126,11 @@ public class OrderService {
         }
         // Normalize and validate payment method
         String normalizedMethod = (paymentMethod == null) ? "" : paymentMethod.trim().toUpperCase();
-        java.util.Set<String> supportedMethods = java.util.Set.of("COD", "CARD", "UPI", "WALLET");
-        if (!supportedMethods.contains(normalizedMethod)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Unsupported payment method. Supported: COD, CARD, UPI, WALLET");
+        // COD is the only supported payment method until a real payment provider is integrated.
+        // CARD, UPI, and WALLET are explicitly blocked so no order rows or cart clears happen.
+        if (!"COD".equals(normalizedMethod)) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Online payments (CARD, UPI, WALLET) are not available yet. Please use Cash on Delivery.");
         }
 
         Long userId = resolveUserId(userEmail);

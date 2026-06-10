@@ -33,6 +33,12 @@ public class PaymentService {
     @Transactional
     public Payment initiatePayment(String userEmail, Long orderId,
             com.foodorderapplication.backend.model.enums.PaymentMethod method) {
+        // Block online payments until a real provider is integrated.
+        if (method != com.foodorderapplication.backend.model.enums.PaymentMethod.COD
+                && method != com.foodorderapplication.backend.model.enums.PaymentMethod.CASH) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Online payment is not available yet. Please use Cash on Delivery.");
+        }
         Long userId = resolveUserId(userEmail);
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
@@ -65,6 +71,12 @@ public class PaymentService {
         Long userId = resolveUserId(userEmail);
         Payment p = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+        // Guard: online verification is blocked until a real provider is integrated.
+        if (p.getPaymentMethod() != com.foodorderapplication.backend.model.enums.PaymentMethod.COD
+                && p.getPaymentMethod() != com.foodorderapplication.backend.model.enums.PaymentMethod.CASH) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Online payment verification is not available yet. Please use Cash on Delivery.");
+        }
         Order order = orderRepository.findById(p.getOrderId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         if (!order.getUserId().equals(userId)) {
@@ -80,26 +92,17 @@ public class PaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment is not pending");
         }
 
-        boolean success = mockProviderLookup(paymentId);
+        providerVerification(paymentId);
 
-        if (success) {
-            p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.PAID);
-            order.setOrderStatus(OrderStatus.PENDING);
-            orderRepository.save(order);
-            sendOrderConfirmationEmail(order);
-        } else {
-            p.setPaymentStatus(com.foodorderapplication.backend.model.enums.PaymentStatus.FAILED);
-            order.setOrderStatus(OrderStatus.CANCELLED);
-            orderRepository.save(order);
-        }
+        // Unreachable until providerVerification() is implemented.
         return paymentRepository.save(p);
     }
 
-    private boolean mockProviderLookup(Long paymentId) {
+    private void providerVerification(Long paymentId) {
         // No real payment provider is integrated yet.
-        // Disable online payment verification until Stripe/Razorpay/etc. is wired in.
-        throw new UnsupportedOperationException(
-                "Online payment verification is not yet supported. Please use Cash on Delivery.");
+        // Replace this method with Stripe/Razorpay/etc. webhook or server-side lookup before enabling online payments.
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Online payment verification is not available yet. Please use Cash on Delivery.");
     }
 
     public List<Payment> getPaymentsForOrder(String userEmail, Long orderId) {

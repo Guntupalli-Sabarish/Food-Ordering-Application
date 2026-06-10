@@ -59,7 +59,7 @@ const CATEGORIES = [
 const RESTAURANTS = [
   { name: "Spice Garden",    cuisine: "South Indian", rating: 4.8, time: "25 min", price: "₹180 for two", tag: "Popular",      image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80" },
   { name: "The Pizza House", cuisine: "Italian",      rating: 4.6, time: "30 min", price: "₹350 for two", tag: "Top Rated",    image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&q=80" },
-  { name: "Biryani Bros",    cuisine: "Mughlai",      rating: 4.7, time: "35 min", price: "₹280 for two", tag: "Bestseller",   image: "https://images.unsplash.com/photo-1589302168068-964664d93cb0?w=600&q=80" },
+  { name: "Biryani Bros",    cuisine: "Mughlai",      rating: 4.7, time: "35 min", price: "₹280 for two", tag: "Bestseller",   image: "https://images.unsplash.com/photo-1563379091339-03246963a896?w=600&q=80" },
   { name: "Dragon Palace",   cuisine: "Chinese",      rating: 4.5, time: "20 min", price: "₹240 for two", tag: "Fast Delivery",image: "https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=600&q=80" },
   { name: "Burger Nation",   cuisine: "American",     rating: 4.4, time: "22 min", price: "₹300 for two", tag: "New",          image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&q=80" },
   { name: "Sweet Cravings",  cuisine: "Desserts",     rating: 4.9, time: "15 min", price: "₹150 for two", tag: "Fan Favourite",image: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=600&q=80" },
@@ -572,7 +572,9 @@ export const LandingPage = () => {
                 }}>
                   {/* Image */}
                   <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
-                    <img src={r.image} alt={r.name} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .5s" }}
+                    <img src={r.image} alt={r.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform .5s" }}
+                      onError={e => { (e.currentTarget as HTMLImageElement).src = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80"; }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.08)"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
                     />

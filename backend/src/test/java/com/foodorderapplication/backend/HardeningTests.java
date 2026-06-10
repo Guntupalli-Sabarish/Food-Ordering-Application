@@ -96,7 +96,7 @@ public class HardeningTests {
         rest.setActive(true);
         Restaurant savedRest = restaurantRepository.save(rest);
 
-        // Create menu item and add to cart
+        // Create menu item
         MenuItem mi = new MenuItem();
         mi.setItemName("Item");
         mi.setDescription("Desc");
@@ -106,17 +106,82 @@ public class HardeningTests {
         mi.setRestaurant(savedRest);
         MenuItem savedMi = menuItemRepository.save(mi);
 
+        // Verify that initiatePayment with CARD throws ResponseStatusException(503).
+        // No payment row should be created for an online method.
+        ResponseStatusException initEx = assertThrows(ResponseStatusException.class, () ->
+                paymentService.initiatePayment(email, 0L, PaymentMethod.CARD));
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, initEx.getStatusCode(),
+                "initiatePayment with CARD must return 503 SERVICE_UNAVAILABLE");
+
+        // Same check for UPI
+        ResponseStatusException upiEx = assertThrows(ResponseStatusException.class, () ->
+                paymentService.initiatePayment(email, 0L, PaymentMethod.UPI));
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, upiEx.getStatusCode());
+
+        // verifyPayment must also throw 503 (not UnsupportedOperationException)
+        // First create a COD order and payment to test the verify guard.
         cartService.addItem(email, savedMi.getMenuItemId(), 1);
+        Order savedOrder = orderService.createOrder(email, "123 Street", "cod");
+        paymentService.initiatePayment(email, savedOrder.getOrderId(), PaymentMethod.COD);
 
-        Order savedOrder = orderService.createOrder(email, "123 Street", "card");
+        // initiatePayment with CARD still throws 503 ResponseStatusException, not UnsupportedOperationException.
+        ResponseStatusException verifyEx = assertThrows(ResponseStatusException.class, () ->
+                paymentService.initiatePayment(email, savedOrder.getOrderId(), PaymentMethod.CARD));
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, verifyEx.getStatusCode(),
+                "Payment service must throw 503 ResponseStatusException, not UnsupportedOperationException");
+    }
 
-        // Initiate payment
-        Payment payment = paymentService.initiatePayment(email, savedOrder.getOrderId(), PaymentMethod.CARD);
+    @Test
+    public void testNonCodOrderRejectedAndCartIntact() {
+        // Setup
+        String email = "non_cod_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("NonCod Customer");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
 
-        // verifyPayment must throw because no real payment provider is integrated.
-        // This ensures a mock returning true can never silently mark payments as PAID.
-        assertThrows(UnsupportedOperationException.class, () ->
-                paymentService.verifyPayment(email, payment.getPaymentId()));
+        Restaurant rest = new Restaurant();
+        rest.setName("NC Restaurant");
+        rest.setAddress("Addr");
+        rest.setCuisine("Fast Food");
+        rest.setAdminId(3L);
+        rest.setActive(true);
+        Restaurant savedRest = restaurantRepository.save(rest);
+
+        MenuItem mi = new MenuItem();
+        mi.setItemName("NC Item");
+        mi.setDescription("Desc");
+        mi.setCategory("Cat");
+        mi.setPrice(new BigDecimal("150.00"));
+        mi.setAvailability(true);
+        mi.setRestaurant(savedRest);
+        MenuItem savedMi = menuItemRepository.save(mi);
+
+        cartService.addItem(email, savedMi.getMenuItemId(), 2);
+
+        // CARD order must be rejected with 503
+        ResponseStatusException cardEx = assertThrows(ResponseStatusException.class, () ->
+                orderService.createOrder(email, "123 Addr", "card"));
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, cardEx.getStatusCode(),
+                "CARD order must be rejected before any DB write");
+
+        // UPI must also be rejected
+        ResponseStatusException upiEx = assertThrows(ResponseStatusException.class, () ->
+                orderService.createOrder(email, "123 Addr", "upi"));
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, upiEx.getStatusCode());
+
+        // WALLET must also be rejected
+        ResponseStatusException walletEx = assertThrows(ResponseStatusException.class, () ->
+                orderService.createOrder(email, "123 Addr", "wallet"));
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, walletEx.getStatusCode());
+
+        // Cart must still have items — rejection did NOT clear the cart
+        var cart = cartService.getCart(email);
+        assertFalse(cart.getItems() == null || cart.getItems().isEmpty(),
+                "Cart must be intact after non-COD order rejection");
     }
 
     @Test
@@ -504,14 +569,17 @@ public class HardeningTests {
         menuItemRepository.save(mi);
 
         cartService.addItem(email, mi.getMenuItemId(), 1);
-        Order order = orderService.createOrder(email, "Addr", "card");
+        // Use COD — online payments are disabled; idempotency is tested on a COD payment
+        Order order = orderService.createOrder(email, "Addr", "cod");
 
-        // First payment initiation should succeed
-        paymentService.initiatePayment(email, order.getOrderId(), PaymentMethod.CARD);
+        // First COD payment initiation should succeed
+        paymentService.initiatePayment(email, order.getOrderId(), PaymentMethod.COD);
 
-        // Second call should throw 409 (idempotency)
-        assertThrows(ResponseStatusException.class,
-                () -> paymentService.initiatePayment(email, order.getOrderId(), PaymentMethod.CARD));
+        // Second call with the same COD method should throw 409 (idempotency guard)
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> paymentService.initiatePayment(email, order.getOrderId(), PaymentMethod.COD));
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, ex.getStatusCode(),
+                "Second payment initiation for same order must return 409 CONFLICT");
     }
 
     @Test
@@ -567,5 +635,54 @@ public class HardeningTests {
         // Adding item from Restaurant B should throw 409 (cross-restaurant)
         assertThrows(ResponseStatusException.class,
                 () -> cartService.addItem(email, miB.getMenuItemId(), 1));
+    }
+
+    @Autowired
+    private com.foodorderapplication.backend.repository.OrderRepository orderRepository;
+
+    @Test
+    public void testAnalyticsRepositoryQueries() {
+        // Smoke test: verifies the FoodOrder entity rename and all JPQL custom queries
+        // load and execute without HibernateQueryException or startup failure.
+        assertDoesNotThrow(() -> {
+            orderRepository.sumTotalAmountByStatus(
+                    com.foodorderapplication.backend.model.enums.OrderStatus.DELIVERED);
+        }, "sumTotalAmountByStatus must not throw — FoodOrder JPQL entity name must be valid");
+
+        assertDoesNotThrow(() -> {
+            orderRepository.sumTotalAmountByRestaurantIdAndStatus(1L,
+                    com.foodorderapplication.backend.model.enums.OrderStatus.DELIVERED);
+        }, "sumTotalAmountByRestaurantIdAndStatus must not throw");
+
+        assertDoesNotThrow(() -> {
+            orderRepository.countOrdersGroupedByRestaurant();
+        }, "countOrdersGroupedByRestaurant must not throw");
+    }
+
+    @Test
+    public void testPaymentMethodFromStringNormalization() {
+        // COD and CASH both resolve to COD
+        assertEquals(PaymentMethod.COD, PaymentMethod.fromString("cod"));
+        assertEquals(PaymentMethod.COD, PaymentMethod.fromString("COD"));
+        assertEquals(PaymentMethod.COD, PaymentMethod.fromString("CASH"),
+                "Legacy CASH must map to COD");
+        assertEquals(PaymentMethod.COD, PaymentMethod.fromString("cash"));
+
+        // CARD, UPI, WALLET resolve correctly
+        assertEquals(PaymentMethod.CARD, PaymentMethod.fromString("card"));
+        assertEquals(PaymentMethod.CARD, PaymentMethod.fromString("CARD"));
+        assertEquals(PaymentMethod.UPI, PaymentMethod.fromString("upi"));
+        assertEquals(PaymentMethod.UPI, PaymentMethod.fromString("UPI"));
+        assertEquals(PaymentMethod.WALLET, PaymentMethod.fromString("wallet"));
+        assertEquals(PaymentMethod.WALLET, PaymentMethod.fromString("WALLET"));
+
+        // Unknown values must throw 400 ResponseStatusException
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
+                PaymentMethod.fromString("BITCOIN"));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatusCode());
+
+        // Null/blank must throw 400
+        assertThrows(ResponseStatusException.class, () -> PaymentMethod.fromString(null));
+        assertThrows(ResponseStatusException.class, () -> PaymentMethod.fromString("   "));
     }
 }
