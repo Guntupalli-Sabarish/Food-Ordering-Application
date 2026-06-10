@@ -26,13 +26,19 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = "foodapp.auth";
 
-const loadStoredAuth = () => {
+/** Persist only the user profile (no token — session is cookie-based). */
+const persistUser = (user: User) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ user }));
+};
+
+const clearStorage = () => localStorage.removeItem(STORAGE_KEY);
+
+const loadStoredUser = (): User | null => {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) {
-    return null;
-  }
+  if (!stored) return null;
   try {
-    return JSON.parse(stored) as { user: User; token: string };
+    const parsed = JSON.parse(stored) as { user?: User };
+    return parsed.user ?? null;
   } catch {
     return null;
   }
@@ -42,26 +48,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { toast } = useToast();
-  const storedAuth = loadStoredAuth();
-  const [user, setUser] = useState<User | null>(storedAuth?.user ?? null);
-  const [token, setToken] = useState<string | null>(storedAuth?.token ?? null);
+  const [user, setUser] = useState<User | null>(loadStoredUser());
   const [ready, setReady] = useState(false);
-
-  const persist = useCallback((nextUser: User) => {
-    setUser(nextUser);
-    setToken(null);
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ user: nextUser, token: null })
-    );
-  }, []);
 
   const clearAuth = useCallback(() => {
     setUser(null);
-    setToken(null);
-    localStorage.removeItem(STORAGE_KEY);
+    clearStorage();
   }, []);
 
+  // ── OAuth code exchange (Google redirect) ──────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const codeParam = params.get("code");
@@ -70,7 +65,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (codeParam) {
       oauth2Exchange(codeParam)
         .then((parsedUser) => {
-          persist(parsedUser);
+          setUser(parsedUser);
+          persistUser(parsedUser);
           setReady(true);
           if (isNewParam === "true") {
             toast({ title: "Welcome to FoodFlow!", description: "Your account was successfully created via Google." });
@@ -88,8 +84,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           window.history.replaceState({}, document.title, cleanUrl);
         });
     }
-  }, [persist, clearAuth, toast]);
+  }, [clearAuth, toast]);
 
+  // ── Session hydration on mount ─────────────────────────────────────────────
+  // Always call /api/auth/profile to verify the HttpOnly cookie is still valid.
   useEffect(() => {
     let active = true;
     const hydrateProfile = async () => {
@@ -97,8 +95,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const profile = await getProfile();
         if (active) {
           setUser(profile);
+          persistUser(profile);
         }
       } catch {
+        // Cookie absent or expired — clear stale UI state
         if (active) {
           clearAuth();
         }
@@ -114,43 +114,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [clearAuth]);
 
+  // ── Email / password login ─────────────────────────────────────────────────
+  // The backend now sets the HttpOnly cookie in its response.
+  // We call /api/auth/profile immediately after to get a verified user object.
   const login = useCallback(
     async (email: string, password: string) => {
-      const response = await apiLogin(email, password);
-      persist(response.user);
+      // This call now sets the cookie via Set-Cookie header
+      await apiLogin(email, password);
+      // Hydrate user from profile endpoint (proves the cookie works)
+      const profile = await getProfile();
+      setUser(profile);
+      persistUser(profile);
       setReady(true);
       toast({ title: "Welcome back!", description: "Login successful." });
-      return response.user;
+      return profile;
     },
-    [persist, toast]
+    [toast]
   );
 
+  // ── Registration ──────────────────────────────────────────────────────────
+  // - If email verification is bypassed (dev), backend returns a cookie → profile hydration succeeds → user is signed in.
+  // - If email verification is required, backend returns no cookie → profile hydration fails → we show the "check inbox" message.
   const register = useCallback(
     async (
       name: string,
       email: string,
       password: string
     ) => {
-      const response = await apiRegister(name, email, password);
-      if (response.user) {
-        persist(response.user);
+      await apiRegister(name, email, password);
+
+      // Try to hydrate the session. Succeeds only when a valid cookie was set.
+      try {
+        const profile = await getProfile();
+        setUser(profile);
+        persistUser(profile);
         toast({
           title: "Account created",
-          description: "You are signed in now.",
+          description: "You are now signed in.",
         });
         return true;
+      } catch {
+        // No cookie was set — verification email was sent
+        clearAuth();
+        toast({
+          title: "Verify your email",
+          description: "We sent a verification link to your inbox.",
+        });
+        return false;
       }
-
-      clearAuth();
-      toast({
-        title: "Verify your email",
-        description: "We sent a verification link to your inbox.",
-      });
-      return false;
     },
-    [clearAuth, persist, toast]
+    [clearAuth, toast]
   );
 
+  // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
     apiLogout().catch(() => undefined);
     clearAuth();
@@ -158,8 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [clearAuth, toast]);
 
   const value = useMemo(
-    () => ({ user, token, ready, login, logout, register }),
-    [user, token, ready, login, logout, register]
+    () => ({ user, token: null, ready, login, logout, register }),
+    [user, ready, login, logout, register]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

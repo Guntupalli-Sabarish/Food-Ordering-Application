@@ -1,12 +1,17 @@
 package com.foodorderapplication.backend.service;
 
+import com.foodorderapplication.backend.event.OrderNotificationEvent;
+import com.foodorderapplication.backend.repository.UserRepository;
 import com.foodorderapplication.backend.util.EmailRequest;
 import com.foodorderapplication.backend.util.EmailType;
 import com.foodorderapplication.backend.util.SmtpProperties;
 import com.foodorderapplication.backend.util.SmtpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,13 +23,49 @@ public class NotificationService {
 
     private final SmtpClient smtpClient;
     private final SmtpProperties smtpProperties;
+    private final UserRepository userRepository;
 
-    public NotificationService(SmtpClient smtpClient, SmtpProperties smtpProperties) {
+    public NotificationService(SmtpClient smtpClient, SmtpProperties smtpProperties, UserRepository userRepository) {
         this.smtpClient = smtpClient;
         this.smtpProperties = smtpProperties;
+        this.userRepository = userRepository;
     }
 
-    @org.springframework.scheduling.annotation.Async
+    /**
+     * Handles {@link OrderNotificationEvent} published by {@code OrderService}.
+     *
+     * <p>Fires <em>only after the enclosing transaction commits</em> via
+     * {@code @TransactionalEventListener(phase = AFTER_COMMIT)}, so a rollback
+     * will never dispatch an email. {@code @Async} ensures SMTP I/O runs on a
+     * background thread and does not block the HTTP response.
+     */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleOrderEvent(OrderNotificationEvent event) {
+        if (event == null || event.getOrder() == null) return;
+        com.foodorderapplication.backend.model.Order order = event.getOrder();
+        userRepository.findById(order.getUserId()).ifPresent(user -> {
+            EmailRequest req = new EmailRequest();
+            req.setTo(user.getEmail());
+            if (event.getKind() == OrderNotificationEvent.Kind.CONFIRMATION) {
+                req.setType(EmailType.ORDER_CONFIRMATION);
+                req.setContext(Map.of(
+                        "name", user.getName() == null ? "Customer" : user.getName(),
+                        "orderId", String.valueOf(order.getOrderId())));
+            } else {
+                req.setType(EmailType.ORDER_STATUS_UPDATE);
+                req.setContext(Map.of(
+                        "name", user.getName() == null ? "Customer" : user.getName(),
+                        "orderId", String.valueOf(order.getOrderId()),
+                        "status", order.getOrderStatus().name()));
+            }
+            logger.info("Dispatching {} email for order {} to {} after commit",
+                    event.getKind(), order.getOrderId(), user.getEmail());
+            sendEmail(req);
+        });
+    }
+
+    @Async
     public void sendEmail(EmailRequest request) {
         if (request == null) {
             logger.warn("Attempted to send null email request");

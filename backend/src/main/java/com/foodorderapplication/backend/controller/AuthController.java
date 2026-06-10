@@ -31,14 +31,24 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request, HttpServletResponse response) {
+        AuthResponse auth = authService.register(request);
+        // Set HttpOnly cookie when email is already verified (dev bypass or immediate session)
+        if (auth.getToken() != null) {
+            setTokenCookie(auth.getToken(), response);
+        }
+        // Strip token from body — session is cookie-based
+        AuthResponse body = new AuthResponse(null, auth.getUserId(), auth.getName(), auth.getEmail(), auth.getRole());
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request, HttpServletResponse response) {
+        AuthResponse auth = authService.login(request);
+        setTokenCookie(auth.getToken(), response);
+        // Strip token from body — session is cookie-based
+        AuthResponse body = new AuthResponse(null, auth.getUserId(), auth.getName(), auth.getEmail(), auth.getRole());
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/logout")
@@ -64,8 +74,7 @@ public class AuthController {
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired authorization code");
         }
         
-        String cookieHeader = String.format("token=%s; Path=/; HttpOnly; Secure; SameSite=Lax", auth.getToken());
-        response.addHeader("Set-Cookie", cookieHeader);
+        setTokenCookie(auth.getToken(), response);
         
         AuthResponse secureResponse = new AuthResponse(
             null,
@@ -75,6 +84,15 @@ public class AuthController {
             auth.getRole()
         );
         return ResponseEntity.ok(secureResponse);
+    }
+
+    /** Writes the JWT as a Secure, HttpOnly, SameSite=Lax cookie. */
+    private void setTokenCookie(String token, HttpServletResponse response) {
+        if (token == null) return;
+        // Use Set-Cookie header directly to include SameSite attribute
+        String cookieHeader = String.format(
+                "token=%s; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800", token);
+        response.addHeader("Set-Cookie", cookieHeader);
     }
 
     @PostMapping("/forgot-password")

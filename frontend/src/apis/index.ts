@@ -19,6 +19,17 @@ type ApiResponse<T> = {
   status: number;
 };
 
+/** Shape returned by all Spring Data Page<T> endpoints */
+type PageResponse<T> = {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+};
+
 type AuthResponse = {
   token: string | null;
   userId: number;
@@ -260,6 +271,7 @@ const mapOrder = (dto: OrderDTO): Order => ({
       isVeg: false,
       category: "Main",
       image: DEFAULT_MENU_IMAGE,
+      availability: true,
     },
     quantity: item.quantity ?? 1,
   })),
@@ -366,8 +378,8 @@ export const updateProfile = async (payload: Partial<User>) => {
 };
 
 export const getRestaurants = async () => {
-  const data = await apiRequest<RestaurantDTO[]>("/api/customer/restaurants");
-  return data.map(mapRestaurant);
+  const page = await apiRequest<PageResponse<RestaurantDTO>>("/api/customer/restaurants?size=200&sort=name,asc");
+  return (page.content ?? []).map(mapRestaurant);
 };
 
 export const getRestaurantById = async (id: string) => {
@@ -376,15 +388,15 @@ export const getRestaurantById = async (id: string) => {
 };
 
 export const getMenuForRestaurant = async (restaurantId: string) => {
-  const data = await apiRequest<MenuItemDTO[]>(
-    `/api/customer/menu/${restaurantId}`
+  const page = await apiRequest<PageResponse<MenuItemDTO>>(
+    `/api/customer/menu/${restaurantId}?size=200&sort=itemName,asc`
   );
-  return data.map(mapMenuItem);
+  return (page.content ?? []).map(mapMenuItem);
 };
 
 export const getMenuItems = async () => {
-  const data = await apiRequest<MenuItemDTO[]>("/api/admin/menu");
-  return data.map(mapMenuItem);
+  const page = await apiRequest<PageResponse<MenuItemDTO>>("/api/admin/menu?size=200&sort=itemName,asc");
+  return (page.content ?? []).map(mapMenuItem);
 };
 
 export const getAdminRestaurant = async () => {
@@ -405,8 +417,8 @@ export const updateAdminRestaurant = async (payload: {
 };
 
 export const getSuperRestaurants = async () => {
-  const data = await apiRequest<RestaurantDTO[]>("/api/superadmin/restaurants");
-  return data.map(mapRestaurant);
+  const page = await apiRequest<PageResponse<RestaurantDTO>>("/api/superadmin/restaurants?size=200&sort=name,asc");
+  return (page.content ?? []).map(mapRestaurant);
 };
 
 export const createRestaurant = async (payload: {
@@ -548,8 +560,8 @@ export const getCheckoutQuote = async () => {
 };
 
 export const getOrders = async () => {
-  const data = await apiRequest<OrderDTO[]>("/api/customer/orders");
-  return data.map(mapOrder);
+  const page = await apiRequest<PageResponse<OrderDTO>>("/api/customer/orders?size=50&sort=createdAt,desc");
+  return (page.content ?? []).map(mapOrder);
 };
 
 export const getOrderById = async (id: string) => {
@@ -571,8 +583,8 @@ export const trackOrder = async (id: string) => {
 };
 
 export const getAdminOrders = async () => {
-  const data = await apiRequest<OrderDTO[]>("/api/admin/orders");
-  return data.map(mapOrder);
+  const page = await apiRequest<PageResponse<OrderDTO>>("/api/admin/orders?size=100&sort=createdAt,desc");
+  return (page.content ?? []).map(mapOrder);
 };
 
 export const updateOrderStatus = async (id: string, status: string) => {
@@ -613,13 +625,13 @@ export const sendEmailNotification = async (payload: {
 };
 
 export const getAdminMetrics = async (): Promise<DashboardMetric[]> => {
-  const [revenue, orders] = await Promise.all([
+  const [revenue, ordersPage] = await Promise.all([
             unwrapApiResponse<{ total: number }>("/api/admin/analytics/revenue"),
-    apiRequest<OrderDTO[]>("/api/admin/orders"),
+    apiRequest<PageResponse<OrderDTO>>("/api/admin/orders?size=1"),
   ]);
 
   return [
-    { title: "Orders", value: String(orders.length), change: "" },
+    { title: "Orders", value: String(ordersPage.totalElements ?? 0), change: "" },
     { title: "Revenue", value: `$${revenue.total ?? 0}`, change: "" },
     { title: "Active", value: "-", change: "" },
   ];
@@ -658,8 +670,8 @@ export const getOrderVolumeSeries = async (): Promise<ChartPoint[]> => {
       { name: "Cancelled", value: data.cancelled ?? 0 },
     ];
   } catch {
-    const orders = await apiRequest<OrderDTO[]>("/api/admin/orders");
-    const counts = orders.reduce(
+    const ordersPage = await apiRequest<PageResponse<OrderDTO>>("/api/admin/orders?size=500");
+    const counts = (ordersPage.content ?? []).reduce(
       (acc, order) => {
         const status = order.orderStatus ?? "PENDING";
         acc[status] = (acc[status] ?? 0) + 1;
@@ -698,8 +710,8 @@ export const getPlatformMetrics = async (): Promise<DashboardMetric[]> => {
 };
 
 export const getUsers = async () => {
-  const data = await apiRequest<UserDTO[]>("/api/superadmin/users");
-  return data.map(mapUser);
+  const page = await apiRequest<PageResponse<UserDTO>>("/api/superadmin/users?size=200&sort=userId,asc");
+  return (page.content ?? []).map(mapUser);
 };
 
 export const updateUserRole = async (id: string, role: Role) => {

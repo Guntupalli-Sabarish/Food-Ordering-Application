@@ -1,5 +1,6 @@
 package com.foodorderapplication.backend.service;
 
+import com.foodorderapplication.backend.event.OrderNotificationEvent;
 import com.foodorderapplication.backend.model.Cart;
 import com.foodorderapplication.backend.model.CartItem;
 import com.foodorderapplication.backend.model.MenuItem;
@@ -14,14 +15,13 @@ import com.foodorderapplication.backend.repository.OrderItemRepository;
 import com.foodorderapplication.backend.repository.OrderRepository;
 import com.foodorderapplication.backend.repository.RestaurantRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
-import com.foodorderapplication.backend.util.EmailRequest;
-import com.foodorderapplication.backend.util.EmailType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,11 +37,12 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final RestaurantRepository restaurantRepository;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
         public OrderService(UserRepository userRepository, MenuItemRepository menuItemRepository,
             CartRepository cartRepository, CartItemRepository cartItemRepository, OrderRepository orderRepository,
             OrderItemRepository orderItemRepository, RestaurantRepository restaurantRepository,
-            NotificationService notificationService) {
+            NotificationService notificationService, ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.menuItemRepository = menuItemRepository;
         this.cartRepository = cartRepository;
@@ -50,6 +51,7 @@ public class OrderService {
         this.orderItemRepository = orderItemRepository;
         this.restaurantRepository = restaurantRepository;
         this.notificationService = notificationService;
+        this.eventPublisher = eventPublisher;
     }
 
     private Long resolveUserId(String email) {
@@ -201,7 +203,9 @@ public class OrderService {
         orderItemRepository.saveAll(orderItems);
         savedOrder.setItems(orderItems);
 
-        sendOrderConfirmationEmail(savedOrder);
+        // Publish after-commit event — fires only when the transaction commits successfully
+        eventPublisher.publishEvent(
+                new OrderNotificationEvent(this, savedOrder, OrderNotificationEvent.Kind.CONFIRMATION));
 
         cartItemRepository.deleteByCart(cart);
         return savedOrder;
@@ -258,7 +262,8 @@ public class OrderService {
         }
         order.setOrderStatus(OrderStatus.CANCELLED);
         Order saved = orderRepository.save(order);
-        sendOrderStatusEmail(saved);
+        eventPublisher.publishEvent(
+                new OrderNotificationEvent(this, saved, OrderNotificationEvent.Kind.STATUS_UPDATE));
         populateNamesIfNull(saved);
         return saved;
     }
@@ -293,7 +298,8 @@ public class OrderService {
         }
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
-        sendOrderStatusEmail(saved);
+        eventPublisher.publishEvent(
+                new OrderNotificationEvent(this, saved, OrderNotificationEvent.Kind.STATUS_UPDATE));
         return saved;
     }
 
@@ -315,7 +321,8 @@ public class OrderService {
         }
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
-        sendOrderStatusEmail(saved);
+        eventPublisher.publishEvent(
+                new OrderNotificationEvent(this, saved, OrderNotificationEvent.Kind.STATUS_UPDATE));
         return saved;
     }
 
@@ -324,45 +331,6 @@ public class OrderService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         populateNamesIfNull(order);
         return order;
-    }
-
-    private void sendOrderStatusEmail(Order order) {
-        if (order == null) {
-            return;
-        }
-        userRepository.findById(order.getUserId()).ifPresent(user -> {
-            EmailRequest request = new EmailRequest();
-            request.setTo(user.getEmail());
-            request.setType(EmailType.ORDER_STATUS_UPDATE);
-            request.setContext(java.util.Map.of(
-                    "name", user.getName() == null ? "Customer" : user.getName(),
-                    "orderId", String.valueOf(order.getOrderId()),
-                    "status", order.getOrderStatus().name()));
-            try {
-                notificationService.sendEmail(request);
-            } catch (Exception ex) {
-                // Skip status email send if SMTP fails, keeping the order flow intact
-            }
-        });
-    }
-
-    private void sendOrderConfirmationEmail(Order order) {
-        if (order == null) {
-            return;
-        }
-        userRepository.findById(order.getUserId()).ifPresent(user -> {
-            EmailRequest request = new EmailRequest();
-            request.setTo(user.getEmail());
-            request.setType(EmailType.ORDER_CONFIRMATION);
-            request.setContext(java.util.Map.of(
-                    "name", user.getName() == null ? "Customer" : user.getName(),
-                    "orderId", String.valueOf(order.getOrderId())));
-            try {
-                notificationService.sendEmail(request);
-            } catch (Exception ex) {
-                // Skip confirmation email send if SMTP fails, keeping the order flow intact
-            }
-        });
     }
 
     private boolean isTerminalStatus(OrderStatus status) {
