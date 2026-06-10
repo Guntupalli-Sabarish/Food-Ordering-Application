@@ -68,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const userIdParam = params.get("userId");
     const nameParam = params.get("name");
     const roleParam = params.get("role");
+    const isNewParam = params.get("isNew");
 
     if (tokenParam && userIdParam && nameParam && roleParam) {
       const parsedUser: User = {
@@ -78,7 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       persist(parsedUser, tokenParam);
       setReady(true);
-      toast({ title: "Welcome back!", description: "Signed in with Google." });
+      
+      if (isNewParam === "true") {
+        toast({ title: "Welcome to FoodFlow!", description: "Your account was successfully created via Google." });
+      } else {
+        toast({ title: "Welcome back!", description: "Signed in with Google." });
+      }
       
       // Clean query params from URL
       const cleanUrl = window.location.pathname;

@@ -49,7 +49,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         }
 
         String normalizedEmail = email.trim().toLowerCase();
-        User user = userRepository.findByEmail(normalizedEmail).orElseGet(() -> {
+        java.util.Optional<User> existingUser = userRepository.findByEmail(normalizedEmail);
+        boolean isNewUser = existingUser.isEmpty();
+        User user = existingUser.orElseGet(() -> {
             User newUser = new User();
             newUser.setEmail(normalizedEmail);
             newUser.setName(name != null ? name : "Google User");
@@ -66,7 +68,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             + "&userId=" + user.getUserId()
             + "&name=" + encode(user.getName())
             + "&role=" + user.getRole().name()
-            + "&email=" + encode(user.getEmail());
+            + "&email=" + encode(user.getEmail())
+            + "&isNew=" + isNewUser;
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
