@@ -63,6 +63,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenParam = params.get("token");
+    const userIdParam = params.get("userId");
+    const nameParam = params.get("name");
+    const roleParam = params.get("role");
+
+    if (tokenParam && userIdParam && nameParam && roleParam) {
+      const parsedUser: User = {
+        id: userIdParam,
+        name: nameParam,
+        email: params.get("email") || "",
+        role: roleParam as any,
+      };
+      persist(parsedUser, tokenParam);
+      setReady(true);
+      toast({ title: "Welcome back!", description: "Signed in with Google." });
+      
+      // Clean query params from URL
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, [persist, toast]);
+
+  useEffect(() => {
     let active = true;
     const hydrateProfile = async () => {
       if (!token) {

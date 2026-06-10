@@ -32,7 +32,7 @@ public class SecurityConfig {
         @Value("${app.frontend.allowed-origins:http://localhost:5173,http://localhost:5174}")
         private String allowedOriginsRaw;
         @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter)
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter, OAuth2AuthenticationSuccessHandler oAuth2SuccessHandler)
                         throws Exception {
                 http.csrf(csrf -> csrf.disable())
                                 .cors(Customizer.withDefaults())
@@ -51,13 +51,17 @@ public class SecurityConfig {
                                                                 "/swagger-ui/**",
                                                                 "/v3/api-docs/**",
                                                                 "/swagger-resources/**",
-                                                                "/webjars/**")
+                                                                "/webjars/**",
+                                                                "/oauth2/**",
+                                                                "/login/oauth2/**")
                                                                 .permitAll()
                                                                 .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                                 .requestMatchers("/api/superadmin/**").hasRole("SUPER_ADMIN")
                                                                 .anyRequest()
                                                                 .authenticated())
+                                .oauth2Login(oauth -> oauth
+                                                .successHandler(oAuth2SuccessHandler))
                                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
