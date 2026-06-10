@@ -632,7 +632,7 @@ export const LandingPage = () => {
             }}
             className="lp-float" 
             style={{
-              position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)",
+              position: "absolute", bottom: 72, left: "50%", transform: "translateX(-50%)",
               color: "rgba(255,255,255,.55)", fontSize: 13, textAlign: "center", zIndex: 10,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
               background: "none", border: "none", cursor: "pointer", padding: 0
@@ -644,7 +644,7 @@ export const LandingPage = () => {
           {/* Centered slide dots */}
           <div style={{
             position: "absolute",
-            bottom: 32,
+            bottom: 20,
             left: "50%",
             transform: "translateX(-50%)",
             display: "flex",
