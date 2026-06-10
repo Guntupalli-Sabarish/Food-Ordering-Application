@@ -1,11 +1,12 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppFooter } from "@/components/common/AppFooter";
 
 export const PublicLayout = () => {
   const { user, ready } = useAuth();
+  const location = useLocation();
 
-  if (ready && user) {
+  if (ready && user && location.pathname !== "/reset-password") {
     if (user.role === "ADMIN") {
       return <Navigate to="/admin" replace />;
     }

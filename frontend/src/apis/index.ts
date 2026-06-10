@@ -377,6 +377,18 @@ export const getAdminRestaurant = async () => {
   return mapRestaurant(data);
 };
 
+export const updateAdminRestaurant = async (payload: {
+  name: string;
+  address: string;
+  cuisine: string;
+}) => {
+  const data = await apiRequest<RestaurantDTO>("/api/admin/restaurant", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return mapRestaurant(data);
+};
+
 export const getSuperRestaurants = async () => {
   const data = await apiRequest<RestaurantDTO[]>("/api/superadmin/restaurants");
   return data.map(mapRestaurant);

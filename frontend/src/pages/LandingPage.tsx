@@ -88,9 +88,13 @@ const TESTIMONIALS = [
 ];
 
 const HERO_IMAGES = [
-  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1600&q=85",
-  "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1600&q=85",
-  "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=1600&q=85",
+  "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?w=1600&q=85", // Biryani
+  "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1600&q=85", // Pizza
+  "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1600&q=85", // Burgers
+  "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=1600&q=85", // Desserts
+  "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=1600&q=85", // South Indian Dosa
+  "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=1600&q=85", // Chinese Noodles
+  "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1600&q=85", // Healthy Salad
 ];
 
 const SOCIAL_LINKS: any[] = [];
@@ -253,6 +257,67 @@ export const LandingPage = () => {
           100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); transform: scale(1); }
         }
         .lp-cta-highlight { animation: lp-cta-glow 1.5s ease-in-out infinite; border: 2px solid #fff; }
+
+        /* Media queries for responsive layout */
+        @media (max-width: 1023px) {
+          .lp-desktop-links {
+            display: none !important;
+          }
+          .lp-desktop-auth {
+            display: none !important;
+          }
+          .lp-hamburger {
+            display: block !important;
+          }
+        }
+        @media (max-width: 767px) {
+          /* Search bar responsive */
+          .lp-search-form {
+            flex-direction: column;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+            width: 100% !important;
+          }
+          .lp-search-form input {
+            padding: 14px 0 !important;
+          }
+          .lp-search-form button {
+            width: 100%;
+            padding: 14px 0 !important;
+            border-radius: 0 0 12px 12px !important;
+          }
+          /* Grid systems scaling */
+          .lp-grid-categories {
+            grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)) !important;
+            gap: 12px !important;
+          }
+          .lp-grid-restaurants {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+            gap: 16px !important;
+          }
+          .lp-grid-features {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+            gap: 16px !important;
+          }
+          .lp-grid-testimonials {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
+            gap: 16px !important;
+          }
+          /* Hero text constraints */
+          .lp-hero-title {
+            font-size: 2.2rem !important;
+            letter-spacing: -1px !important;
+            line-height: 1.15 !important;
+          }
+          .lp-hero-desc {
+            font-size: 14px !important;
+            margin-bottom: 24px !important;
+          }
+          /* Spacing fixes */
+          section {
+            padding: 60px 16px !important;
+          }
+        }
       `}</style>
 
       {/* Guest Onboarding Modal */}
@@ -306,7 +371,7 @@ export const LandingPage = () => {
             </a>
 
             {/* Desktop links */}
-            <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+            <div className="lp-desktop-links" style={{ display: "flex", alignItems: "center", gap: 32 }}>
               {navLinks.map(l => (
                 <a key={l.label} href={l.href} className="lp-nav-link"
                   style={{ color: scrolled ? (dk ? "#94a3b8" : "#374151") : "rgba(255,255,255,0.85)" }}
@@ -325,7 +390,7 @@ export const LandingPage = () => {
                 cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
               }}>{dk ? "☀️" : "🌙"}</button>
 
-              <Link to="/login" style={{
+              <Link to="/login" className="lp-desktop-auth" style={{
                 textDecoration: "none", fontWeight: 600, fontSize: 14,
                 padding: "8px 20px", borderRadius: 10,
                 border: `1.5px solid ${scrolled ? "#f97316" : "rgba(255,255,255,0.7)"}`,
@@ -333,7 +398,7 @@ export const LandingPage = () => {
                 background: "transparent", transition: "all .2s",
               }}>Login</Link>
 
-              <Link to="/register" style={{
+              <Link to="/register" className="lp-desktop-auth" style={{
                 textDecoration: "none", fontWeight: 700, fontSize: 14,
                 padding: "8px 22px", borderRadius: 10,
                 background: "linear-gradient(135deg,#f97316,#ea580c)",
@@ -350,34 +415,107 @@ export const LandingPage = () => {
             </div>
           </div>
 
-          {/* Mobile drawer */}
+          {/* Mobile slide-out drawer backdrop */}
           {navOpen && (
-            <div style={{
-              background: dk ? "#181c27" : "#fff",
-              borderTop: `1px solid ${border}`,
-              padding: "16px 24px 24px",
-            }}>
-              {navLinks.map(l => (
-                <a key={l.label} href={l.href} onClick={() => setNavOpen(false)} style={{
-                  display: "block", padding: "11px 0", fontWeight: 600,
-                  color: muted, textDecoration: "none", fontSize: 15,
-                  borderBottom: `1px solid ${border}`,
-                }}>{l.label}</a>
-              ))}
-              <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-                <Link to="/login" onClick={() => setNavOpen(false)} style={{
-                  flex: 1, textAlign: "center", padding: 12, borderRadius: 10,
-                  border: "1.5px solid #f97316", color: "#f97316",
-                  textDecoration: "none", fontWeight: 600,
-                }}>Login</Link>
-                <Link to="/register" onClick={() => setNavOpen(false)} style={{
-                  flex: 1, textAlign: "center", padding: 12, borderRadius: 10,
-                  background: "linear-gradient(135deg,#f97316,#ea580c)",
-                  color: "#fff", textDecoration: "none", fontWeight: 700,
-                }}>Sign Up</Link>
-              </div>
-            </div>
+            <div 
+              onClick={() => setNavOpen(false)} 
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0, 0, 0, 0.4)",
+                zIndex: 99,
+                backdropFilter: "blur(4px)"
+              }}
+            />
           )}
+
+          {/* Mobile slide-out drawer */}
+          <div style={{
+            position: "fixed",
+            top: 0,
+            right: navOpen ? 0 : "-280px",
+            width: 280,
+            height: "100vh",
+            background: dk ? "#111520" : "#ffffff",
+            boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
+            zIndex: 101,
+            transition: "right 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+            padding: "24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ fontWeight: 800, fontSize: 18, color: "#f97316" }}>Menu</span>
+              <button 
+                onClick={() => setNavOpen(false)} 
+                style={{ background: "none", border: "none", cursor: "pointer", color: text }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+            {/* Links */}
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
+              {navLinks.map(l => (
+                <a 
+                  key={l.label} 
+                  href={l.href} 
+                  onClick={() => setNavOpen(false)} 
+                  style={{
+                    display: "block",
+                    padding: "12px 8px",
+                    fontWeight: 600,
+                    color: text,
+                    textDecoration: "none",
+                    fontSize: 16,
+                    borderRadius: 8,
+                    transition: "background 0.2s"
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "none" }}
+                >
+                  {l.label}
+                </a>
+              ))}
+            </div>
+            {/* Actions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: "auto" }}>
+              <Link 
+                to="/login" 
+                onClick={() => setNavOpen(false)} 
+                style={{
+                  textAlign: "center",
+                  padding: "12px",
+                  borderRadius: 12,
+                  border: "1.5px solid #f97316",
+                  color: "#f97316",
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  fontSize: 15
+                }}
+              >
+                Login
+              </Link>
+              <Link 
+                to="/register" 
+                onClick={() => setNavOpen(false)} 
+                style={{
+                  textAlign: "center",
+                  padding: "12px",
+                  borderRadius: 12,
+                  background: "linear-gradient(135deg,#f97316,#ea580c)",
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  boxShadow: "0 4px 12px rgba(249,115,22,0.2)"
+                }}
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
         </nav>
 
         {/* ══════════════════════════════════════════
@@ -427,14 +565,14 @@ export const LandingPage = () => {
               India's fastest growing food platform
             </div>
 
-            <h1 className="lp-fu lp-fu-d2" style={{
+            <h1 className="lp-fu lp-fu-d2 lp-hero-title" style={{
               fontSize: "clamp(2.6rem,7vw,5.5rem)", fontWeight: 900, lineHeight: 1.05,
               color: "#fff", letterSpacing: -2, marginBottom: 20,
             }}>
               Discover the <span style={{ color: "#fb923c" }}>best food</span><br />near you
             </h1>
 
-            <p className="lp-fu lp-fu-d3" style={{
+            <p className="lp-fu lp-fu-d3 lp-hero-desc" style={{
               fontSize: "clamp(1rem,2.5vw,1.2rem)", color: "rgba(255,255,255,0.72)",
               maxWidth: 540, lineHeight: 1.65, marginBottom: 40,
             }}>
@@ -442,7 +580,7 @@ export const LandingPage = () => {
             </p>
 
             {/* Search bar */}
-            <form className="lp-fu lp-fu-d4" onSubmit={handleSearch} style={{
+            <form className="lp-fu lp-fu-d4 lp-search-form" onSubmit={handleSearch} style={{
               display: "flex", width: "100%", maxWidth: 580, borderRadius: 16,
               overflow: "hidden", background: "#fff",
               boxShadow: "0 16px 48px rgba(0,0,0,.4), 0 4px 16px rgba(249,115,22,.2)",
@@ -484,23 +622,54 @@ export const LandingPage = () => {
             </div>
           </div>
 
-          {/* Scroll cue */}
-          <div className="lp-float" style={{
-            position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)",
-            color: "rgba(255,255,255,.55)", fontSize: 13, textAlign: "center", zIndex: 10,
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-          }}>
+          {/* Scroll cue (smooth scroll button) */}
+          <button 
+            onClick={() => {
+              const nextSection = document.getElementById("categories");
+              if (nextSection) {
+                nextSection.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
+            className="lp-float" 
+            style={{
+              position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)",
+              color: "rgba(255,255,255,.55)", fontSize: 13, textAlign: "center", zIndex: 10,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+              background: "none", border: "none", cursor: "pointer", padding: 0
+            }}
+          >
             <span>Scroll down</span><ChevronDown size={18} />
-          </div>
+          </button>
 
-          {/* Slide dots */}
-          <div style={{ position: "absolute", bottom: 32, right: 32, display: "flex", gap: 8, zIndex: 10 }}>
+          {/* Centered slide dots */}
+          <div style={{
+            position: "absolute",
+            bottom: 32,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            gap: 10,
+            zIndex: 10,
+            background: "rgba(0, 0, 0, 0.3)",
+            padding: "8px 16px",
+            borderRadius: "100px",
+            backdropFilter: "blur(4px)"
+          }}>
             {HERO_IMAGES.map((_, i) => (
-              <button key={i} onClick={() => setHeroIdx(i)} style={{
-                width: i === heroIdx ? 24 : 8, height: 8, borderRadius: 4,
-                background: i === heroIdx ? "#f97316" : "rgba(255,255,255,.35)",
-                border: "none", cursor: "pointer", transition: "all .3s",
-              }} />
+              <button
+                key={i}
+                onClick={() => setHeroIdx(i)}
+                style={{
+                  width: i === heroIdx ? 28 : 10,
+                  height: 10,
+                  borderRadius: 5,
+                  background: i === heroIdx ? "#f97316" : "rgba(255, 255, 255, 0.5)",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  padding: 0
+                }}
+              />
             ))}
           </div>
         </section>
@@ -523,7 +692,7 @@ export const LandingPage = () => {
               </p>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 20 }}>
+            <div className="lp-grid-categories" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 20 }}>
               {CATEGORIES.map(cat => (
                 <button key={cat.name} onClick={handleRestaurantClick} className="lp-cat-btn" style={{
                   display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
@@ -563,7 +732,7 @@ export const LandingPage = () => {
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(310px,1fr))", gap: 24 }}>
+            <div className="lp-grid-restaurants" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(310px,1fr))", gap: 24 }}>
               {RESTAURANTS.map(r => (
                 <div key={r.name} onClick={handleRestaurantClick} className="lp-card-hover" style={{
                   borderRadius: 20, overflow: "hidden", cursor: "pointer",
@@ -628,7 +797,7 @@ export const LandingPage = () => {
               </p>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 24 }}>
+            <div className="lp-grid-features" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(290px,1fr))", gap: 24 }}>
               {FEATURES.map(f => (
                 <div key={f.title} className="lp-feat-card" style={{
                   padding: "32px 28px", borderRadius: 20,
@@ -689,7 +858,7 @@ export const LandingPage = () => {
               <h2 style={{ fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 800, letterSpacing: -1 }}>What our customers say</h2>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
+            <div className="lp-grid-testimonials" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
               {TESTIMONIALS.map(t => (
                 <div key={t.name} style={{
                   padding: 32, borderRadius: 20, background: cardBg,

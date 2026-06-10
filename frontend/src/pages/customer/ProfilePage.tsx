@@ -1,24 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ChangeEvent } from "react";
-import { User, Mail, Shield, Sun, Moon, Monitor, Bell, ChevronRight, Camera } from "lucide-react";
+import { User, Mail, Shield, Sun, Moon, Monitor, Bell, ChevronRight, Camera, Utensils, Sparkles, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useTheme } from "@/context/ThemeProvider";
+import { useAdminRestaurant } from "@/hooks/useAdminRestaurant";
 
-type Tab = "account" | "preferences";
+type Tab = "account" | "preferences" | "restaurant";
 
 export const ProfilePage = () => {
   usePageTitle("Profile");
   const { user } = useAuth();
   const { profile, loading, save } = useProfile(user?.email);
+  const { restaurant, loading: loadingRestaurant, save: saveRestaurant } = useAdminRestaurant();
   const { toast } = useToast();
   const { mode, setMode } = useTheme();
   const [name, setName] = useState(user?.name ?? "");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("account");
+
+  const [restName, setRestName] = useState("");
+  const [restCuisine, setRestCuisine] = useState("");
+  const [restAddress, setRestAddress] = useState("");
+  const [savingRestaurant, setSavingRestaurant] = useState(false);
+
+  useEffect(() => {
+    if (restaurant) {
+      setRestName(restaurant.name ?? "");
+      setRestCuisine(restaurant.cuisine ?? "");
+      setRestAddress(restaurant.address ?? "");
+    }
+  }, [restaurant]);
+
+  const handleSaveRestaurant = async () => {
+    setSavingRestaurant(true);
+    try {
+      await saveRestaurant({
+        name: restName,
+        cuisine: restCuisine,
+        address: restAddress,
+      });
+      toast({ title: "Restaurant updated", description: "Your changes have been saved." });
+    } catch {
+      toast({ title: "Failed to update restaurant", variant: "destructive" });
+    } finally {
+      setSavingRestaurant(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -64,7 +95,7 @@ export const ProfilePage = () => {
 
       {/* Tabs */}
       <div className="flex rounded-xl border border-border bg-card p-1 gap-1">
-        {(["account", "preferences"] as Tab[]).map((tab) => (
+        {(user?.role === "ADMIN" ? ["account", "preferences", "restaurant"] as Tab[] : ["account", "preferences"] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -74,7 +105,7 @@ export const ProfilePage = () => {
                 : "text-muted-foreground hover:text-foreground hover:bg-secondary"
             }`}
           >
-            {tab}
+            {tab === "restaurant" ? "My Restaurant" : tab}
           </button>
         ))}
       </div>
@@ -187,6 +218,66 @@ export const ProfilePage = () => {
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
+        </div>
+      )}
+
+      {/* Restaurant tab */}
+      {activeTab === "restaurant" && user?.role === "ADMIN" && (
+        <div className="rounded-2xl border border-border bg-card p-6 space-y-5 card-elevated animate-fade-in">
+          <h2 className="font-bold text-foreground">Restaurant information</h2>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Utensils className="h-3.5 w-3.5" />
+                Restaurant name
+              </label>
+              <input
+                value={restName}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setRestName(e.target.value)}
+                placeholder="Enter restaurant name"
+                disabled={loadingRestaurant || savingRestaurant}
+                className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-all disabled:opacity-50"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                Cuisine (comma-separated)
+              </label>
+              <input
+                value={restCuisine}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setRestCuisine(e.target.value)}
+                placeholder="e.g. Italian, Pizza, Fast Food"
+                disabled={loadingRestaurant || savingRestaurant}
+                className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-all disabled:opacity-50"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                Address
+              </label>
+              <textarea
+                value={restAddress}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setRestAddress(e.target.value)}
+                placeholder="Enter restaurant address"
+                disabled={loadingRestaurant || savingRestaurant}
+                rows={3}
+                className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-all disabled:opacity-50 resize-none"
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSaveRestaurant}
+            disabled={loadingRestaurant || savingRestaurant || !restName.trim() || !restAddress.trim() || !restCuisine.trim()}
+            className="w-full rounded-xl btn-brand-gradient border-0 text-white py-5 font-semibold"
+          >
+            {savingRestaurant ? "Saving…" : "Save changes"}
+          </Button>
         </div>
       )}
     </div>

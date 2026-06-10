@@ -14,8 +14,8 @@ export const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [email, setEmail] = useState(searchParams.get("email") ?? "");
-  const [token, setToken] = useState(searchParams.get("token") ?? "");
+  const email = searchParams.get("email") ?? "";
+  const token = searchParams.get("token") ?? "";
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,10 +24,19 @@ export const ResetPasswordPage = () => {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email || !token || !newPassword || !confirmPassword) {
+    if (!email || !token) {
+      toast({
+        title: "Invalid Link",
+        description: "The reset link is invalid or missing required parameters.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!newPassword || !confirmPassword) {
       toast({
         title: "Missing fields",
-        description: "Fill in email, token, and both password fields.",
+        description: "Please fill in both password fields.",
+        variant: "destructive",
       });
       return;
     }
@@ -61,22 +70,12 @@ export const ResetPasswordPage = () => {
         <CardHeader>
           <CardTitle className="text-2xl">Reset password</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Set a new password using the email link.
+            Enter your new password below.
           </p>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setEmail(event.target.value)}
-            />
-            <Input
-              placeholder="Reset token"
-              value={token}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setToken(event.target.value)}
-            />
+
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
