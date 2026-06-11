@@ -5,6 +5,7 @@ import com.foodorderapplication.backend.model.NotificationJob;
 import com.foodorderapplication.backend.model.enums.NotificationJobStatus;
 import com.foodorderapplication.backend.repository.NotificationJobRepository;
 import com.foodorderapplication.backend.repository.UserRepository;
+import com.foodorderapplication.backend.repository.OrderRepository;
 import com.foodorderapplication.backend.util.EmailRequest;
 import com.foodorderapplication.backend.util.EmailType;
 import com.foodorderapplication.backend.util.SmtpProperties;
@@ -28,13 +29,16 @@ public class NotificationService {
     private final SmtpProperties smtpProperties;
     private final UserRepository userRepository;
     private final NotificationJobRepository notificationJobRepository;
+    private final OrderRepository orderRepository;
 
     public NotificationService(SmtpClient smtpClient, SmtpProperties smtpProperties,
-                               UserRepository userRepository, NotificationJobRepository notificationJobRepository) {
+                               UserRepository userRepository, NotificationJobRepository notificationJobRepository,
+                               OrderRepository orderRepository) {
         this.smtpClient = smtpClient;
         this.smtpProperties = smtpProperties;
         this.userRepository = userRepository;
         this.notificationJobRepository = notificationJobRepository;
+        this.orderRepository = orderRepository;
     }
 
     /**
@@ -66,13 +70,25 @@ public class NotificationService {
                                     .append(")\n");
                     }
                 }
+                long orderCount = orderRepository.countByUserIdAndRestaurantId(order.getUserId(), order.getRestaurantId());
+                String ordinalOrder = toOrdinal(orderCount);
+
+                String subtotalStr = order.getSubtotal() != null ? String.format("%.2f", order.getSubtotal()) : "0.00";
+                String deliveryFeeStr = order.getDeliveryFee() != null ? String.format("%.2f", order.getDeliveryFee()) : "0.00";
+                String taxStr = order.getTax() != null ? String.format("%.2f", order.getTax()) : "0.00";
+                String totalAmountStr = order.getTotalAmount() != null ? String.format("%.2f", order.getTotalAmount()) : "0.00";
+
                 req.setType(EmailType.ORDER_CONFIRMATION);
                 req.setContext(Map.of(
                         "name", user.getName() == null ? "Customer" : user.getName(),
                         "orderId", String.valueOf(order.getOrderId()),
                         "restaurantName", order.getRestaurantName() == null ? "Restaurant" : order.getRestaurantName(),
                         "itemsOrdered", itemsBuilder.toString(),
-                        "totalAmount", order.getTotalAmount() != null ? order.getTotalAmount().toString() : "0.00"
+                        "ordinalOrder", ordinalOrder,
+                        "subtotal", subtotalStr,
+                        "deliveryFee", deliveryFeeStr,
+                        "tax", taxStr,
+                        "totalAmount", totalAmountStr
                 ));
             } else {
                 req.setType(EmailType.ORDER_STATUS_UPDATE);
@@ -228,12 +244,49 @@ public class NotificationService {
             case REGISTRATION -> "Hello " + name + ",\n\nThanks for registering with Food Ordering.";
             case PASSWORD_RESET -> "Hello " + name + ",\n\nReset your password by visiting: "
                 + getContextValue(context, "resetLink", "") + "\n\nThis link expires soon.";
-            case ORDER_CONFIRMATION -> "Hello " + name + ",\n\nYour order " + orderId + " from " 
-                    + getContextValue(context, "restaurantName", "Restaurant") + " has been confirmed.\n\n"
-                    + "Items ordered:\n" + getContextValue(context, "itemsOrdered", "") 
-                    + "\nTotal Amount: ₹" + getContextValue(context, "totalAmount", "0.00") + ".";
+            case ORDER_CONFIRMATION -> {
+                String restaurantName = getContextValue(context, "restaurantName", "Restaurant");
+                String ordinalOrder = getContextValue(context, "ordinalOrder", "1st");
+                String subtotal = getContextValue(context, "subtotal", "0.00");
+                String deliveryFee = getContextValue(context, "deliveryFee", "0.00");
+                String tax = getContextValue(context, "tax", "0.00");
+                String totalAmount = getContextValue(context, "totalAmount", "0.00");
+
+                yield "Hello " + name + ",\n\n"
+                        + "This is your " + ordinalOrder + " order from our website from " + restaurantName + ".\n\n"
+                        + "--------------------------------------------------\n"
+                        + "ORDER DETAILS\n"
+                        + "--------------------------------------------------\n"
+                        + "Order ID: #" + orderId + "\n"
+                        + "Status: Confirmed\n"
+                        + "Restaurant: " + restaurantName + "\n\n"
+                        + "Items ordered:\n" + getContextValue(context, "itemsOrdered", "") + "\n"
+                        + "--------------------------------------------------\n"
+                        + "BILLING SUMMARY\n"
+                        + "--------------------------------------------------\n"
+                        + "Subtotal:     ₹" + subtotal + "\n"
+                        + "Delivery Fee: ₹" + deliveryFee + "\n"
+                        + "Taxes (8%):   ₹" + tax + "\n"
+                        + "--------------------------------------------------\n"
+                        + "Final Total:  ₹" + totalAmount + "\n"
+                        + "--------------------------------------------------\n\n"
+                        + "Thank you for choosing us! We hope you enjoy your meal.";
+            }
             case PAYMENT_STATUS -> "Hello " + name + ",\n\nPayment status for order " + orderId + " is " + status + ". Amount: " + amount + ".";
             case ORDER_STATUS_UPDATE -> "Hello " + name + ",\n\nOrder " + orderId + " status is now " + status + ".";
+        };
+    }
+
+    private String toOrdinal(long n) {
+        if (n <= 0) return String.valueOf(n);
+        if (n % 100 >= 11 && n % 100 <= 13) {
+            return n + "th";
+        }
+        return switch ((int) (n % 10)) {
+            case 1 -> n + "st";
+            case 2 -> n + "nd";
+            case 3 -> n + "rd";
+            default -> n + "th";
         };
     }
 

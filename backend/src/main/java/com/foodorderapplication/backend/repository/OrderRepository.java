@@ -20,6 +20,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     long countByRestaurantIdAndOrderStatus(Long restaurantId, OrderStatus status);
 
+    long countByUserIdAndRestaurantId(Long userId, Long restaurantId);
+
     @org.springframework.data.jpa.repository.Query(
         "SELECT COALESCE(SUM(o.totalAmount), 0) FROM FoodOrder o WHERE o.orderStatus = :status")
     java.math.BigDecimal sumTotalAmountByStatus(@org.springframework.data.repository.query.Param("status") OrderStatus status);

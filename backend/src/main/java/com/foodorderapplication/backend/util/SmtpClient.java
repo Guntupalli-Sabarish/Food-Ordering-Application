@@ -63,8 +63,8 @@ public class SmtpClient {
             socket.connect(new InetSocketAddress(properties.getHost(), properties.getPort()), properties.getTimeoutMs());
             socket.setSoTimeout(properties.getTimeoutMs());
 
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
-            writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.US_ASCII));
+            reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
 
             expect(readResponse(reader), 220);
 
@@ -76,8 +76,8 @@ public class SmtpClient {
                 expect(readResponse(reader), 220);
 
                 socket = upgradeToTls(socket, properties.getHost(), properties.getPort());
-                reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.US_ASCII));
-                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.US_ASCII));
+                reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
 
                 sendLine(writer, "EHLO localhost");
                 expect(readResponse(reader), 250);
