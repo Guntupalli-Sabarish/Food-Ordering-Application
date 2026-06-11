@@ -96,7 +96,7 @@ export const MenuPage = () => {
 
 
 
-      <div className="flex gap-6">
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Category sidebar – desktop */}
         {categories.length > 1 && (
           <nav className="hidden md:flex flex-col gap-1 w-44 shrink-0">
@@ -120,7 +120,7 @@ export const MenuPage = () => {
 
         {/* Category tabs – mobile */}
         {categories.length > 1 && (
-          <div className="flex md:hidden gap-2 overflow-x-auto mb-4 pb-1 shrink-0 w-full">
+          <div className="flex md:hidden gap-2 overflow-x-auto pb-1 mb-4 -mx-4 px-4">
             {categories.map((cat) => (
               <button
                 key={cat}

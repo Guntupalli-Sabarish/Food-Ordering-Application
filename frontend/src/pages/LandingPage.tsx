@@ -256,21 +256,6 @@ export const LandingPage = () => {
           }
         }
         @media (max-width: 767px) {
-          /* Search bar responsive */
-          .lp-search-form {
-            flex-direction: column;
-            border-radius: 12px !important;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
-            width: 100% !important;
-          }
-          .lp-search-form input {
-            padding: 14px 0 !important;
-          }
-          .lp-search-form button {
-            width: 100%;
-            padding: 14px 0 !important;
-            border-radius: 0 0 12px 12px !important;
-          }
           /* Grid systems scaling */
           .lp-grid-categories {
             grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)) !important;
