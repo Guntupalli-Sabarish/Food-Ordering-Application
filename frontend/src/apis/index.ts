@@ -111,7 +111,9 @@ if (!_rawApiUrl && import.meta.env.PROD) {
     "Set it in your .env or deployment environment."
   );
 }
-const API_BASE_URL = _rawApiUrl ?? "http://localhost:8080";
+// In production, we use relative paths (empty string) to leverage Vercel rewrites,
+// preventing cross-site cookie blocking and CORS issues.
+const API_BASE_URL = import.meta.env.PROD ? "" : (_rawApiUrl ?? "http://localhost:8080");
 const DEFAULT_MENU_IMAGE =
   "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 
