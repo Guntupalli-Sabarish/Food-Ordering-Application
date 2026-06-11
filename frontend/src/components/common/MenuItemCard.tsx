@@ -68,23 +68,23 @@ export const MenuItemCard = ({ item, onAdd }: MenuItemCardProps) => {
               Add
             </Button>
           ) : (
-            <div className="flex items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/10 px-1">
+            <div className="flex items-center gap-1 rounded-full btn-brand-gradient p-0.5 text-white shadow-sm shadow-brand-500/20">
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={handleMinus}
-                className="h-7 w-7 rounded-full text-brand-600 dark:text-brand-400 hover:bg-brand-500/15"
+                className="h-7 w-7 rounded-full text-white hover:bg-white/10 hover:text-white"
               >
                 <Minus className="h-3 w-3" />
               </Button>
-              <span className="min-w-[1.25rem] text-center text-sm font-bold text-brand-600 dark:text-brand-400">
+              <span className="min-w-[1.25rem] text-center text-sm font-bold text-white">
                 {count}
               </span>
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={handleAdd}
-                className="h-7 w-7 rounded-full text-brand-600 dark:text-brand-400 hover:bg-brand-500/15"
+                className="h-7 w-7 rounded-full text-white hover:bg-white/10 hover:text-white"
               >
                 <Plus className="h-3 w-3" />
               </Button>
