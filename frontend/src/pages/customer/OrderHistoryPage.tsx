@@ -33,7 +33,7 @@ const SkeletonOrder = () => (
 export const OrderHistoryPage = () => {
   usePageTitle("Orders");
   const navigate = useNavigate();
-  const { data, loading } = useOrders();
+  const { data, loading, page, setPage, totalPages, totalElements } = useOrders();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -44,7 +44,7 @@ export const OrderHistoryPage = () => {
           Order history
         </h1>
         <p className="text-sm text-muted-foreground">
-          {loading ? "Loading…" : `${data.length} order${data.length !== 1 ? "s" : ""} total`}
+          {loading ? "Loading…" : `${totalElements} order${totalElements !== 1 ? "s" : ""} total`}
         </p>
       </div>
 
@@ -70,95 +70,121 @@ export const OrderHistoryPage = () => {
             </Button>
           </div>
         ) : (
-          data.map((order) => {
-            const status = statusConfig[order.status] ?? {
-              label: order.status,
-              className: "bg-muted text-muted-foreground",
-              emoji: "📋",
-            };
-            const isActive = ["PLACED", "PREPARING", "OUT_FOR_DELIVERY"].includes(order.status);
+          <>
+            {data.map((order) => {
+              const status = statusConfig[order.status] ?? {
+                label: order.status,
+                className: "bg-muted text-muted-foreground",
+                emoji: "📋",
+              };
+              const isActive = ["PLACED", "PREPARING", "OUT_FOR_DELIVERY"].includes(order.status);
 
-            return (
-              <div
-                key={order.id}
-                className="group rounded-2xl border border-border bg-card p-5 card-elevated cursor-pointer"
-                onClick={() => navigate(`/orders/${order.id}/track`)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && navigate(`/orders/${order.id}/track`)}
-                aria-label={`View order from ${order.restaurantName}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  {/* Restaurant info */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-2xl">
-                      {status.emoji}
+              return (
+                <div
+                  key={order.id}
+                  className="group rounded-2xl border border-border bg-card p-5 card-elevated cursor-pointer"
+                  onClick={() => navigate(`/orders/${order.id}/track`)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(`/orders/${order.id}/track`)}
+                  aria-label={`View order from ${order.restaurantName}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    {/* Restaurant info */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-2xl">
+                        {status.emoji}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">
+                          {order.restaurantName ?? "Restaurant"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          <Package className="h-3 w-3" />
+                          Order #{String(order.id).slice(-6).toUpperCase()}
+                          <span className="mx-1">·</span>
+                          {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-foreground">
-                        {order.restaurantName ?? "Restaurant"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        Order #{String(order.id).slice(-6).toUpperCase()}
-                        <span className="mx-1">·</span>
-                        {new Date(order.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
+
+                    {/* Status + chevron */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}
+                      >
+                        {isActive && (
+                          <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                        )}
+                        {status.label}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
                   </div>
 
-                  {/* Status + chevron */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}
-                    >
-                      {isActive && (
-                        <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-                      )}
-                      {status.label}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  {/* Items list */}
+                  {order.items && order.items.length > 0 && (
+                    <p className="mt-3 text-sm text-muted-foreground line-clamp-1">
+                      {order.items.map((i) => `${i.quantity}× ${i.item?.name ?? "Item"}`).join("  ·  ")}
+                    </p>
+                  )}
+
+                  {/* Footer */}
+                  <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                    <p className="text-base font-bold text-foreground">
+                      {formatCurrency(order.total)}
+                    </p>
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full text-xs h-8"
+                        onClick={() => navigate(`/orders/${order.id}/track`)}
+                      >
+                        {isActive ? "Track order" : "View details"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-full text-xs h-8 text-brand-600 dark:text-brand-400 hover:bg-brand-500/10"
+                      >
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Reorder
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
 
-                {/* Items list */}
-                {order.items && order.items.length > 0 && (
-                  <p className="mt-3 text-sm text-muted-foreground line-clamp-1">
-                    {order.items.map((i) => `${i.quantity}× ${i.item?.name ?? "Item"}`).join("  ·  ")}
-                  </p>
-                )}
-
-                {/* Footer */}
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                  <p className="text-base font-bold text-foreground">
-                    {formatCurrency(order.total)}
-                  </p>
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full text-xs h-8"
-                      onClick={() => navigate(`/orders/${order.id}/track`)}
-                    >
-                      {isActive ? "Track order" : "View details"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="rounded-full text-xs h-8 text-brand-600 dark:text-brand-400 hover:bg-brand-500/10"
-                    >
-                      <RefreshCw className="mr-1 h-3 w-3" />
-                      Reorder
-                    </Button>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between py-4">
+              <span className="text-sm text-muted-foreground">
+                Page {totalPages > 0 ? page + 1 : 0} of {totalPages}
+              </span>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0 || loading}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1 || loading}
+                >
+                  Next
+                </Button>
               </div>
-            );
-          })
+            </div>
+          </>
         )}
       </div>
     </div>

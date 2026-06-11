@@ -117,11 +117,26 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(String userEmail) {
-        return createOrder(userEmail, "Default Address", "COD");
+        return createOrder(userEmail, "Default Address", "COD", null);
     }
 
     @Transactional
     public Order createOrder(String userEmail, String deliveryAddress, String paymentMethod) {
+        return createOrder(userEmail, deliveryAddress, paymentMethod, null);
+    }
+
+    @Transactional
+    public Order createOrder(String userEmail, String deliveryAddress, String paymentMethod, String idempotencyKey) {
+        // --- Check Idempotency First ---
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<Order> existingOpt = orderRepository.findByIdempotencyKey(idempotencyKey.trim());
+            if (existingOpt.isPresent()) {
+                Order order = existingOpt.get();
+                populateNamesIfNull(order);
+                return order;
+            }
+        }
+
         // --- Validate inputs up front ---
         if (deliveryAddress == null || deliveryAddress.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Delivery address is required");
@@ -136,7 +151,7 @@ public class OrderService {
         }
 
         Long userId = resolveUserId(userEmail);
-        Cart cart = cartRepository.findByUserId(userId)
+        Cart cart = cartRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty"));
         List<CartItem> cartItems = cartItemRepository.findByCart(cart);
         if (cartItems.isEmpty()) {
@@ -187,6 +202,7 @@ public class OrderService {
         order.setTotalAmount(total);
         order.setDeliveryAddress(deliveryAddress);
         order.setPaymentMethod(normalizedMethod);
+        order.setIdempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey.trim() : null);
         
         if ("COD".equals(normalizedMethod)) {
             order.setOrderStatus(OrderStatus.PENDING);
@@ -208,6 +224,7 @@ public class OrderService {
                 new OrderNotificationEvent(this, savedOrder, OrderNotificationEvent.Kind.CONFIRMATION));
 
         cartItemRepository.deleteByCart(cart);
+        cart.getItems().clear();
         return savedOrder;
     }
 
@@ -293,8 +310,8 @@ public class OrderService {
     public Order updateOrderStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (isTerminalStatus(order.getOrderStatus()) && order.getOrderStatus() != status) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status cannot be changed");
+        if (!isValidTransition(order.getOrderStatus(), status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status transition from " + order.getOrderStatus() + " to " + status);
         }
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
@@ -316,8 +333,8 @@ public class OrderService {
         if (order.getOrderStatus() == OrderStatus.PENDING_PAYMENT) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot update status of unpaid online orders");
         }
-        if (isTerminalStatus(order.getOrderStatus()) && order.getOrderStatus() != status) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order status cannot be changed");
+        if (!isValidTransition(order.getOrderStatus(), status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status transition from " + order.getOrderStatus() + " to " + status);
         }
         order.setOrderStatus(status);
         Order saved = orderRepository.save(order);
@@ -331,6 +348,32 @@ public class OrderService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         populateNamesIfNull(order);
         return order;
+    }
+
+    private boolean isValidTransition(OrderStatus current, OrderStatus next) {
+        if (current == next) {
+            return true;
+        }
+        if (current == OrderStatus.DELIVERED || current == OrderStatus.CANCELLED) {
+            return false;
+        }
+        if (next == OrderStatus.CANCELLED) {
+            return true;
+        }
+        switch (current) {
+            case PENDING_PAYMENT:
+                return next == OrderStatus.PENDING;
+            case PENDING:
+                return next == OrderStatus.ACCEPTED;
+            case ACCEPTED:
+                return next == OrderStatus.PREPARING;
+            case PREPARING:
+                return next == OrderStatus.OUT_FOR_DELIVERY;
+            case OUT_FOR_DELIVERY:
+                return next == OrderStatus.DELIVERED;
+            default:
+                return false;
+        }
     }
 
     private boolean isTerminalStatus(OrderStatus status) {

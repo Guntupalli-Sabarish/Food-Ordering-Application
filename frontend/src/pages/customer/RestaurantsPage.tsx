@@ -1,10 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
-import type { ChangeEvent } from "react";
-import { Search, SlidersHorizontal, X, Store } from "lucide-react";
+import { useMemo, useState } from "react";
+import { SlidersHorizontal, Store } from "lucide-react";
 import { RestaurantCard } from "@/components/common/RestaurantCard";
 import { useRestaurants } from "@/hooks/useRestaurants";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useSearchParams } from "react-router-dom";
 
 const filterOptions = ["All", "Top Rated", "Fast Delivery", "Budget", "Premium"];
 
@@ -22,30 +20,19 @@ const SkeletonCard = () => (
 export const RestaurantsPage = () => {
   usePageTitle("Restaurants");
   const { data, loading } = useRestaurants();
-  const [searchParams] = useSearchParams();
-  const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [activeFilter, setActiveFilter] = useState("All");
-
-  // Sync query from URL param (from header search)
-  useEffect(() => {
-    const q = searchParams.get("q");
-    if (q) setQuery(q);
-  }, [searchParams]);
 
   const filtered = useMemo(() => {
     return data.filter((r) => {
-      const matchQuery =
-        r.name.toLowerCase().includes(query.toLowerCase()) ||
-        (r.cuisine ?? "").toLowerCase().includes(query.toLowerCase());
       const matchFilter =
         activeFilter === "All" ||
         (activeFilter === "Top Rated" && parseFloat(String(r.rating)) >= 4.0) ||
         (activeFilter === "Fast Delivery" && r.etaMinutes <= 30) ||
         (activeFilter === "Budget" && r.priceLevel === "₹") ||
         (activeFilter === "Premium" && r.priceLevel === "₹₹₹");
-      return matchQuery && matchFilter;
+      return matchFilter;
     });
-  }, [data, query, activeFilter]);
+  }, [data, activeFilter]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -60,27 +47,8 @@ export const RestaurantsPage = () => {
         </p>
       </div>
 
-      {/* Search + filters */}
+      {/* Filters */}
       <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            placeholder="Search restaurants or cuisines…"
-            className="w-full rounded-xl border border-border bg-card py-3 pl-10 pr-10 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-all"
-            value={query}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-          />
-          {query && (
-            <button
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
 
         {/* Filter chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -101,12 +69,7 @@ export const RestaurantsPage = () => {
         </div>
       </div>
 
-      {/* Results count */}
-      {!loading && query && (
-        <p className="text-sm text-muted-foreground">
-          {filtered.length} result{filtered.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
-        </p>
-      )}
+
 
       {/* Grid */}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,7 +88,7 @@ export const RestaurantsPage = () => {
             </p>
             <button
               className="mt-4 text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
-              onClick={() => { setQuery(""); setActiveFilter("All"); }}
+              onClick={() => setActiveFilter("All")}
             >
               Clear filters
             </button>

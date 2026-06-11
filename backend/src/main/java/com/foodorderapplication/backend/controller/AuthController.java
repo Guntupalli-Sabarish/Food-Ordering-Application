@@ -3,6 +3,10 @@ package com.foodorderapplication.backend.controller;
 import com.foodorderapplication.backend.dto.auth.AuthResponse;
 import com.foodorderapplication.backend.dto.auth.LoginRequest;
 import com.foodorderapplication.backend.dto.auth.RegisterRequest;
+import com.foodorderapplication.backend.dto.auth.ForgotPasswordRequest;
+import com.foodorderapplication.backend.dto.auth.ResetPasswordRequest;
+import com.foodorderapplication.backend.dto.auth.OAuth2ExchangeRequest;
+import com.foodorderapplication.backend.dto.auth.UpdateProfileRequest;
 import com.foodorderapplication.backend.service.AuthService;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +29,15 @@ public class AuthController {
 
     @Value("${app.frontend.login-url:http://localhost:5173/login}")
     private String frontendLoginUrl;
+
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
+
+    @Value("${app.cookie.samesite:Lax}")
+    private String cookieSameSite;
+
+    @Value("${app.cookie.domain:}")
+    private String cookieDomain;
 
     public AuthController(AuthService authService) {
         this.authService = authService;
@@ -53,22 +66,13 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
-        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("token", "");
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        response.addCookie(cookie);
+        clearTokenCookie(response);
         return ResponseEntity.ok(authService.logout());
     }
 
     @PostMapping("/oauth2/exchange")
-    public ResponseEntity<AuthResponse> oauth2Exchange(@RequestBody Map<String, String> body, HttpServletResponse response) {
-        String code = body.get("code");
-        if (code == null || code.isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Code is required");
-        }
-        
+    public ResponseEntity<AuthResponse> oauth2Exchange(@jakarta.validation.Valid @RequestBody OAuth2ExchangeRequest body, HttpServletResponse response) {
+        String code = body.getCode();
         AuthResponse auth = authService.exchangeOauthCode(code);
         if (auth == null || auth.getToken() == null) {
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired authorization code");
@@ -86,24 +90,34 @@ public class AuthController {
         return ResponseEntity.ok(secureResponse);
     }
 
-    /** Writes the JWT as a Secure, HttpOnly, SameSite=Lax cookie. */
     private void setTokenCookie(String token, HttpServletResponse response) {
         if (token == null) return;
-        // Use Set-Cookie header directly to include SameSite attribute
+        String sameSiteStr = (cookieSameSite == null || cookieSameSite.isBlank()) ? "" : "; SameSite=" + cookieSameSite;
+        String domainStr = (cookieDomain == null || cookieDomain.isBlank()) ? "" : "; Domain=" + cookieDomain;
+        String secureStr = cookieSecure ? "; Secure" : "";
         String cookieHeader = String.format(
-                "token=%s; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800", token);
+                "token=%s; Path=/; HttpOnly%s%s%s; Max-Age=604800", token, secureStr, sameSiteStr, domainStr);
+        response.addHeader("Set-Cookie", cookieHeader);
+    }
+
+    private void clearTokenCookie(HttpServletResponse response) {
+        String sameSiteStr = (cookieSameSite == null || cookieSameSite.isBlank()) ? "" : "; SameSite=" + cookieSameSite;
+        String domainStr = (cookieDomain == null || cookieDomain.isBlank()) ? "" : "; Domain=" + cookieDomain;
+        String secureStr = cookieSecure ? "; Secure" : "";
+        String cookieHeader = String.format(
+                "token=; Path=/; HttpOnly%s%s%s; Max-Age=0", secureStr, sameSiteStr, domainStr);
         response.addHeader("Set-Cookie", cookieHeader);
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(authService.forgotPassword(body.get("email")));
+    public ResponseEntity<Map<String, String>> forgotPassword(@jakarta.validation.Valid @RequestBody ForgotPasswordRequest body) {
+        return ResponseEntity.ok(authService.forgotPassword(body.getEmail()));
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, String>> resetPassword(@jakarta.validation.Valid @RequestBody ResetPasswordRequest body) {
         return ResponseEntity.ok(
-                authService.resetPassword(body.get("email"), body.get("token"), body.get("newPassword")));
+                authService.resetPassword(body.getEmail(), body.getToken(), body.getNewPassword()));
     }
 
     @GetMapping("/profile")
@@ -113,7 +127,7 @@ public class AuthController {
 
     @PutMapping("/profile/update")
     public ResponseEntity<AuthResponse> updateProfile(
-            Authentication authentication, @RequestBody Map<String, String> body) {
+            Authentication authentication, @jakarta.validation.Valid @RequestBody UpdateProfileRequest body) {
         return ResponseEntity.ok(authService.updateProfile(authentication.getName(), body));
     }
 

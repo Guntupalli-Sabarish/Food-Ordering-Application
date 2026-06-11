@@ -1,25 +1,63 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, CookingPot, Bike, Package, MapPin, Clock } from "lucide-react";
-import { useOrders } from "@/hooks/useOrders";
+import { useEffect, useState } from "react";
+import { getOrderById } from "@/apis";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { formatCurrency } from "@/utils/format";
-import type { OrderStatus } from "@/types";
+import type { Order, OrderStatus } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 const steps: Array<{ status: OrderStatus; label: string; description: string; icon: typeof Package }> = [
   { status: "PLACED", label: "Order placed", description: "Restaurant has received your order", icon: Package },
+  { status: "ACCEPTED", label: "Accepted", description: "Restaurant has accepted your order", icon: CheckCircle2 },
   { status: "PREPARING", label: "Preparing", description: "The kitchen is cooking your meal", icon: CookingPot },
   { status: "OUT_FOR_DELIVERY", label: "On the way", description: "Your rider is heading your way", icon: Bike },
   { status: "DELIVERED", label: "Delivered", description: "Enjoy your meal!", icon: CheckCircle2 },
 ];
 
-const statusOrder = ["PLACED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
+const statusOrder: OrderStatus[] = ["PLACED", "ACCEPTED", "PREPARING", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export const OrderTrackingPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { data } = useOrders();
-  const order = data.find((item) => item.id === id);
+  const { toast } = useToast();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
   usePageTitle("Order Tracking");
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    setLoading(true);
+    getOrderById(id)
+      .then((res) => {
+        if (active) {
+          setOrder(res);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          toast({ title: "Error", description: "Failed to load order tracking details", variant: "destructive" });
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, toast]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="text-sm text-muted-foreground">Loading tracking details...</p>
+      </div>
+    );
+  }
 
   if (!order) {
     return (

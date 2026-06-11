@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+    java.util.Optional<Order> findByIdempotencyKey(String idempotencyKey);
     org.springframework.data.domain.Page<Order> findByUserId(Long userId, org.springframework.data.domain.Pageable pageable);
 
     org.springframework.data.domain.Page<Order> findByRestaurantId(Long restaurantId, org.springframework.data.domain.Pageable pageable);

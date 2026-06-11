@@ -1,5 +1,5 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { ShoppingBag, User, LogOut, Search, LayoutDashboard, Sun, Moon, Monitor } from "lucide-react";
+import { Link, NavLink } from "react-router-dom";
+import { ShoppingBag, User, LogOut, LayoutDashboard, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,7 +14,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
 import { useTheme, type ThemeMode } from "@/context/ThemeProvider";
 import { Logo } from "@/components/common/Logo";
-import { useState } from "react";
 
 const themeOptions: { mode: ThemeMode; label: string; icon: typeof Sun }[] = [
   { mode: "light", label: "Light", icon: Sun },
@@ -26,16 +25,6 @@ export const AppHeader = () => {
   const { user, logout } = useAuth();
   const { cartItems } = useCart();
   const { mode, setMode } = useTheme();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/restaurants?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery("");
-    }
-  };
 
   const ThemeIcon = mode === "dark" ? Moon : mode === "light" ? Sun : Monitor;
 
@@ -45,20 +34,7 @@ export const AppHeader = () => {
         {/* Logo */}
         <Logo />
 
-        {/* Search bar – desktop only */}
-        <form
-          onSubmit={handleSearchSubmit}
-          className="hidden flex-1 max-w-md items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-2 shadow-sm transition-all focus-within:border-brand-400 focus-within:shadow-brand-500/10 focus-within:shadow-lg md:flex"
-        >
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search restaurants, cuisines…"
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-          />
-        </form>
+        <div className="flex-1 md:max-w-md" />
 
         {/* Right nav */}
         <nav className="flex items-center gap-1">

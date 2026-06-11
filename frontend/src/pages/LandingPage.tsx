@@ -1,10 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Search, MapPin, Star, Clock, ChevronDown, Menu, X,
-  Zap, Shield, Truck, Headphones, Bell,
-  ArrowRight,
-} from "lucide-react";
+import { MapPin, Star, Clock, ChevronDown, Menu, X, Zap, Shield, Truck, Headphones, Bell, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Dialog,
@@ -104,7 +100,6 @@ export const LandingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const [query,        setQuery]        = useState("");
   const [heroIdx,      setHeroIdx]      = useState(0);
   const [navOpen,      setNavOpen]      = useState(false);
   const [scrolled,     setScrolled]     = useState(false);
@@ -154,16 +149,6 @@ export const LandingPage = () => {
     return () => obs.disconnect();
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (user) {
-      if (user.role === "ADMIN") navigate("/admin");
-      else if (user.role === "SUPER_ADMIN") navigate("/superadmin");
-      else navigate(`/restaurants`);
-    } else {
-      handleGuestClick();
-    }
-  };
 
   const handleGuestClick = () => {
     // Show modal
@@ -579,31 +564,29 @@ export const LandingPage = () => {
               Fast delivery from 500+ restaurants. Biryani, pizza, burgers, and more — all in one place.
             </p>
 
-            {/* Search bar */}
-            <form className="lp-fu lp-fu-d4 lp-search-form" onSubmit={handleSearch} style={{
-              display: "flex", width: "100%", maxWidth: 580, borderRadius: 16,
-              overflow: "hidden", background: "#fff",
-              boxShadow: "0 16px 48px rgba(0,0,0,.4), 0 4px 16px rgba(249,115,22,.2)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", flex: 1, padding: "0 20px", gap: 10 }}>
-                <Search size={20} color="#9ca3af" />
-                <input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Search restaurants, cuisines, dishes…"
-                  style={{
-                    border: "none", outline: "none", flex: 1, fontSize: 15,
-                    color: "#111", background: "transparent", padding: "18px 0",
-                    fontFamily: "inherit",
-                  }}
-                />
-              </div>
-              <button type="submit" style={{
-                padding: "0 28px", background: "linear-gradient(135deg,#f97316,#ea580c)",
-                color: "#fff", border: "none", cursor: "pointer",
-                fontWeight: 700, fontSize: 15, fontFamily: "inherit",
-              }}>Find Food</button>
-            </form>
+            {/* Explore button */}
+            <div className="lp-fu lp-fu-d4" style={{ display: "flex", width: "100%", justifySelf: "center", justifyContent: "center" }}>
+              <button onClick={() => {
+                if (user) {
+                  if (user.role === "ADMIN") navigate("/admin");
+                  else if (user.role === "SUPER_ADMIN") navigate("/superadmin");
+                  else navigate(`/restaurants`);
+                } else {
+                  handleGuestClick();
+                }
+              }} style={{
+                padding: "16px 36px", background: "linear-gradient(135deg,#f97316,#ea580c)",
+                color: "#fff", border: "none", cursor: "pointer", borderRadius: 16,
+                fontWeight: 700, fontSize: 16, fontFamily: "inherit",
+                boxShadow: "0 16px 48px rgba(0,0,0,.4), 0 4px 16px rgba(249,115,22,.2)",
+                transition: "transform 0.2s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+              >
+                Explore Restaurants
+              </button>
+            </div>
 
             {/* Cuisine tags */}
             <div className="lp-fu lp-fu-d4" style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap", justifyContent: "center" }}>

@@ -46,7 +46,7 @@ public class PaymentController {
     @PostMapping("/api/customer/payments/verify")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Payment> verify(Authentication authentication,
-            @RequestBody Map<String, Object> body) {
+            @jakarta.validation.Valid @RequestBody com.foodorderapplication.backend.dto.PaymentVerifyRequest body) {
         // Guard: online payment verification is not yet available.
         // Remove this block once a real provider (Stripe/Razorpay) is integrated.
         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,

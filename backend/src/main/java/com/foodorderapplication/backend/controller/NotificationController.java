@@ -31,10 +31,13 @@ public class NotificationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse> sendEmail(@RequestBody EmailRequest request, HttpServletRequest httpRequest) {
         logger.info("Send email request received by user with role {} or {}", UserRole.ADMIN, UserRole.SUPER_ADMIN);
-        notificationService.sendEmail(request);
+        com.foodorderapplication.backend.model.NotificationJob job = notificationService.sendEmail(request);
         ApiResponse response = ApiResponse.ok(
                 "Email sending initiated",
-                java.util.Map.of("status", "QUEUED"),
+                java.util.Map.of(
+                        "jobId", job != null ? job.getJobId() : -1L,
+                        "status", job != null ? (job.getStatus() != null ? job.getStatus().name() : "PENDING") : "FAILED"
+                ),
                 httpRequest.getRequestURI(),
                 HttpStatus.OK.value()
         );

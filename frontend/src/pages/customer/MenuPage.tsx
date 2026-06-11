@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Clock, MapPin, Star, Search, ShoppingBag, ArrowLeft, ChevronRight } from "lucide-react";
+import { Clock, MapPin, Star, ShoppingBag, ArrowLeft, ChevronRight } from "lucide-react";
 import { MenuItemCard } from "@/components/common/MenuItemCard";
 import { useMenu } from "@/hooks/useMenu";
 import { useCart } from "@/hooks/useCart";
@@ -28,7 +28,6 @@ export const MenuPage = () => {
   const navigate = useNavigate();
   const { restaurant, items, loading } = useMenu(id ?? "");
   const { cartItems, totalAmount, addItem } = useCart();
-  const [menuSearch, setMenuSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   usePageTitle(restaurant?.name ?? "Menu");
@@ -37,20 +36,11 @@ export const MenuPage = () => {
     return Array.from(new Set(items.map((item) => item.category)));
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) =>
-      item.name.toLowerCase().includes(menuSearch.toLowerCase()) ||
-      (item.description ?? "").toLowerCase().includes(menuSearch.toLowerCase())
-    );
-  }, [items, menuSearch]);
-
   const displayCategory = activeCategory ?? categories[0] ?? null;
 
-  const categoryItems = filteredItems.filter(
-    (item) => !displayCategory || menuSearch.trim() !== "" || item.category === displayCategory
+  const displayItems = items.filter(
+    (item) => !displayCategory || item.category === displayCategory
   );
-
-  const displayItems = menuSearch.trim() !== "" ? filteredItems : categoryItems;
 
   if (loading) {
     return <SkeletonMenu />;
@@ -104,21 +94,11 @@ export const MenuPage = () => {
         </div>
       )}
 
-      {/* Menu search */}
-      <div className="relative mb-5">
-        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <input
-          type="search"
-          placeholder="Search menu items…"
-          className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-all"
-          value={menuSearch}
-          onChange={(e) => setMenuSearch(e.target.value)}
-        />
-      </div>
+
 
       <div className="flex gap-6">
         {/* Category sidebar – desktop */}
-        {categories.length > 1 && menuSearch.trim() === "" && (
+        {categories.length > 1 && (
           <nav className="hidden md:flex flex-col gap-1 w-44 shrink-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-2">Menu</p>
             {categories.map((cat) => (
@@ -139,7 +119,7 @@ export const MenuPage = () => {
         )}
 
         {/* Category tabs – mobile */}
-        {categories.length > 1 && menuSearch.trim() === "" && (
+        {categories.length > 1 && (
           <div className="flex md:hidden gap-2 overflow-x-auto mb-4 pb-1 shrink-0 w-full">
             {categories.map((cat) => (
               <button
@@ -159,20 +139,15 @@ export const MenuPage = () => {
 
         {/* Menu items */}
         <div className="flex-1 space-y-3 min-w-0">
-          {menuSearch.trim() !== "" && (
-            <p className="text-sm text-muted-foreground mb-3">
-              {displayItems.length} result{displayItems.length !== 1 ? "s" : ""} for &ldquo;{menuSearch}&rdquo;
-            </p>
-          )}
           {displayItems.length > 0 ? (
             displayItems.map((item) => (
               <MenuItemCard key={item.id} item={item} onAdd={addItem} />
             ))
           ) : (
             <div className="flex flex-col items-center py-16 text-center">
-              <div className="text-4xl mb-3">🔍</div>
+              <div className="text-4xl mb-3">🍽️</div>
               <p className="font-semibold text-foreground">No items found</p>
-              <p className="text-sm text-muted-foreground">Try a different search term</p>
+              <p className="text-sm text-muted-foreground">This category has no items available</p>
             </div>
           )}
         </div>

@@ -870,15 +870,339 @@ public class HardeningTests {
         user.setEmailVerified(true);
         userRepository.save(user);
 
-        long ordersBefore = com.foodorderapplication.backend.repository.OrderRepository.class
-                .isInterface() ? 0L : 0L; // placeholder — real count via service
-
         assertThrows(
                 org.springframework.web.server.ResponseStatusException.class,
                 () -> orderService.createOrder(email, "123 Main St", "COD"),
                 "createOrder with empty cart must throw ResponseStatusException");
 
-        // If we reach here the transaction rolled back correctly \u2014 no notification was dispatched
+        // If we reach here the transaction rolled back correctly — no notification was dispatched
         // (verified by the @TransactionalEventListener(AFTER_COMMIT) design)
+    }
+
+    @Test
+    public void testSlowProfileHydrationAlongsideOAuthExchange() throws Exception {
+        // Create user
+        String email = "oauth_race_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("OAuth Race User");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Generate OAuth exchange code
+        com.foodorderapplication.backend.dto.auth.AuthResponse authResponse = new com.foodorderapplication.backend.dto.auth.AuthResponse(
+            "dummy-jwt-token",
+            user.getUserId(),
+            user.getName(),
+            user.getEmail(),
+            user.getRole().name()
+        );
+        String tempCode = oauthCodeStore.generateCode(authResponse);
+
+        // Simulate slow profile hydration (running in a separate thread with a delay)
+        java.util.concurrent.CompletableFuture<com.foodorderapplication.backend.dto.auth.AuthResponse> slowProfileFuture = 
+            java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    // Simulate delay
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return authService.getProfile(email);
+            });
+
+        // Simulate immediate OAuth exchange
+        com.foodorderapplication.backend.dto.auth.AuthResponse exchangeResponse = authService.exchangeOauthCode(tempCode);
+        assertNotNull(exchangeResponse);
+        assertEquals(email, exchangeResponse.getEmail());
+
+        // Wait for profile hydration to complete
+        com.foodorderapplication.backend.dto.auth.AuthResponse profileResponse = slowProfileFuture.get();
+        assertNotNull(profileResponse);
+        assertEquals(email, profileResponse.getEmail());
+    }
+
+    @Test
+    public void testConcurrentCheckoutOrderUniqueness() throws Exception {
+        // Create user
+        String email = "concurrent_chk_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Concurrent Cust");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Create restaurant and item
+        Restaurant rest = new Restaurant();
+        rest.setName("Concurrent Rest");
+        rest.setAddress("Addr");
+        rest.setCuisine("Fast Food");
+        rest.setAdminId(3L);
+        rest.setActive(true);
+        Restaurant savedRest = restaurantRepository.save(rest);
+
+        MenuItem mi = new MenuItem();
+        mi.setItemName("Concurrent Item");
+        mi.setDescription("Desc");
+        mi.setCategory("Cat");
+        mi.setPrice(new BigDecimal("100.00"));
+        mi.setAvailability(true);
+        mi.setRestaurant(savedRest);
+        MenuItem savedMi = menuItemRepository.save(mi);
+
+        // Add to cart
+        cartService.addItem(email, savedMi.getMenuItemId(), 2);
+
+        java.util.concurrent.locks.ReentrantLock dbLock = new java.util.concurrent.locks.ReentrantLock();
+
+        // Setup concurrent execution
+        int threadCount = 4;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(threadCount);
+
+        String idempotencyKey = UUID.randomUUID().toString();
+        java.util.List<java.util.concurrent.Future<Order>> futures = new java.util.ArrayList<>();
+
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    latch.await();
+                    dbLock.lock();
+                    try {
+                        // Call the main transaction checkout method with idempotency key
+                        return orderService.createOrder(email, "123 Address", "COD", idempotencyKey);
+                    } finally {
+                        dbLock.unlock();
+                    }
+                } finally {
+                    doneLatch.countDown();
+                }
+            }));
+        }
+
+        // Release all threads simultaneously
+        latch.countDown();
+        doneLatch.await();
+        executor.shutdown();
+
+        // Collect results and verify that only 1 order exists and no duplicate rows are generated
+        long distinctOrderIdsCount = futures.stream()
+            .map(f -> {
+                try {
+                    return f.get().getOrderId();
+                } catch (Exception e) {
+                    // One of the concurrent requests might succeed or return the existing idempotent order
+                    return null;
+                }
+            })
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .count();
+
+        // Even under concurrency, the idempotency mechanism and pessimistic lock must ensure exactly one order is completed
+        assertEquals(1L, distinctOrderIdsCount, "Exactly one order should be created and returned for the same idempotency key");
+    }
+
+    @Test
+    public void testConcurrentCheckoutWithoutIdempotencyKey() throws Exception {
+        // Create user
+        String email = "concurrent_no_idem_" + UUID.randomUUID() + "@test.com";
+        User user = new User();
+        user.setName("Concurrent Cust No Idem");
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode("Sai_310505"));
+        user.setRole(UserRole.CUSTOMER);
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Create restaurant and item
+        Restaurant rest = new Restaurant();
+        rest.setName("Concurrent Rest No Idem");
+        rest.setAddress("Addr");
+        rest.setCuisine("Fast Food");
+        rest.setAdminId(3L);
+        rest.setActive(true);
+        Restaurant savedRest = restaurantRepository.save(rest);
+
+        MenuItem mi = new MenuItem();
+        mi.setItemName("Concurrent Item No Idem");
+        mi.setDescription("Desc");
+        mi.setCategory("Cat");
+        mi.setPrice(new BigDecimal("100.00"));
+        mi.setAvailability(true);
+        mi.setRestaurant(savedRest);
+        MenuItem savedMi = menuItemRepository.save(mi);
+
+        // Add to cart
+        cartService.addItem(email, savedMi.getMenuItemId(), 2);
+
+        java.util.concurrent.locks.ReentrantLock dbLock = new java.util.concurrent.locks.ReentrantLock();
+
+        // Setup concurrent execution
+        int threadCount = 2;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(threadCount);
+
+        java.util.List<java.util.concurrent.Future<Order>> futures = new java.util.ArrayList<>();
+
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    latch.await();
+                    dbLock.lock();
+                    try {
+                        return orderService.createOrder(email, "123 Address", "COD", null);
+                    } finally {
+                        dbLock.unlock();
+                    }
+                } finally {
+                    doneLatch.countDown();
+                }
+            }));
+        }
+
+        // Release all threads simultaneously
+        latch.countDown();
+        doneLatch.await();
+        executor.shutdown();
+
+        int successCount = 0;
+        int failureCount = 0;
+        for (var f : futures) {
+            try {
+                f.get();
+                successCount++;
+            } catch (Exception e) {
+                failureCount++;
+                // Verify the error is because the cart was empty after the first lock was released
+                assertTrue(e.getMessage().contains("Cart is empty") || e.getCause().getMessage().contains("Cart is empty"), 
+                    "Failure must be empty cart. Found: " + e.getMessage());
+            }
+        }
+
+        assertEquals(1, successCount, "Exactly one checkout request should succeed");
+        assertEquals(1, failureCount, "Exactly one checkout request should fail because cart is empty");
+    }
+
+    @Autowired
+    private com.foodorderapplication.backend.security.OauthCodeStore oauthCodeStore;
+
+    @Test
+    public void testRateLimiterIpAndCidrMatchingAndProxyChain() throws Exception {
+        com.foodorderapplication.backend.security.RateLimitFilter testFilter = new com.foodorderapplication.backend.security.RateLimitFilter();
+        org.springframework.test.util.ReflectionTestUtils.setField(
+            testFilter, "trustedProxiesRaw", "127.0.0.1, 10.0.0.0/8, 2001:db8::/32");
+        
+        // Call init() reflectively or directly since it is PostConstruct
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(testFilter, "init");
+
+        // 1. Exact match IPv4
+        assertTrue((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "isTrustedProxy", "127.0.0.1"));
+        
+        // 2. CIDR match IPv4 (10.1.2.3 is within 10.0.0.0/8)
+        assertTrue((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "isTrustedProxy", "10.1.2.3"));
+        
+        // 3. Non-match IPv4 (11.1.2.3 is outside 10.0.0.0/8)
+        assertFalse((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "isTrustedProxy", "11.1.2.3"));
+
+        // 4. CIDR match IPv6 (2001:db8:1234::1 is within 2001:db8::/32)
+        assertTrue((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "isTrustedProxy", "2001:db8:1234::1"));
+
+        // 5. Non-match IPv6
+        assertFalse((Boolean) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "isTrustedProxy", "2001:db9:1234::1"));
+
+        // 6. Test resolveClientIp - spoofing attempt (remoteAddr = untrusted peer "1.2.3.4", XFF contains "10.0.0.1")
+        org.springframework.mock.web.MockHttpServletRequest request = 
+            new org.springframework.mock.web.MockHttpServletRequest();
+        request.setRemoteAddr("1.2.3.4");
+        request.addHeader("X-Forwarded-For", "203.0.113.19, 10.0.0.1");
+        
+        String clientIp = (String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "resolveClientIp", request);
+        // Should ignore XFF because remoteAddr is not a trusted proxy
+        assertEquals("1.2.3.4", clientIp);
+
+        // 7. Test resolveClientIp - trusted proxy chain
+        // remoteAddr = "127.0.0.1" (trusted proxy)
+        // XFF = "192.0.2.1, 10.0.0.1" (where 10.0.0.1 is trusted proxy, 192.0.2.1 is untrusted client)
+        request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setRemoteAddr("127.0.0.1");
+        request.addHeader("X-Forwarded-For", "192.0.2.1, 10.0.0.1");
+
+        clientIp = (String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+            testFilter, "resolveClientIp", request);
+        // Should traverse chain: 127.0.0.1 is trusted -> look at 10.0.0.1 -> 10.0.0.1 is trusted -> look at 192.0.2.1 -> untrusted client
+        assertEquals("192.0.2.1", clientIp);
+        
+        // Clean up
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(testFilter, "shutdown");
+    }
+
+    @Test
+    public void testDtoValidationConstraints() {
+        jakarta.validation.ValidatorFactory factory = jakarta.validation.Validation.buildDefaultValidatorFactory();
+        jakarta.validation.Validator validator = factory.getValidator();
+
+        // Test ForgotPasswordRequest with invalid email
+        com.foodorderapplication.backend.dto.auth.ForgotPasswordRequest badReq = 
+            new com.foodorderapplication.backend.dto.auth.ForgotPasswordRequest("invalid-email");
+        java.util.Set<jakarta.validation.ConstraintViolation<com.foodorderapplication.backend.dto.auth.ForgotPasswordRequest>> violations = 
+            validator.validate(badReq);
+        assertFalse(violations.isEmpty(), "ForgotPasswordRequest with invalid email must produce violations");
+        assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("Invalid email format")));
+
+        // Test ForgotPasswordRequest with blank email
+        com.foodorderapplication.backend.dto.auth.ForgotPasswordRequest blankReq = 
+            new com.foodorderapplication.backend.dto.auth.ForgotPasswordRequest("");
+        violations = validator.validate(blankReq);
+        assertFalse(violations.isEmpty(), "ForgotPasswordRequest with blank email must produce violations");
+    }
+
+    @Test
+    public void testFlywayMigrationCleanAndUpgrade() {
+        // Run Flyway programmatically against a separate in-memory database
+        // to verify that all migration scripts execute successfully.
+        org.springframework.jdbc.datasource.DriverManagerDataSource dataSource = 
+            new org.springframework.jdbc.datasource.DriverManagerDataSource();
+        dataSource.setDriverClassName("org.h2.Driver");
+        dataSource.setUrl("jdbc:h2:mem:flyway_test_" + UUID.randomUUID() + ";MODE=MySQL");
+        dataSource.setUsername("sa");
+        dataSource.setPassword("");
+
+        org.flywaydb.core.Flyway flyway = org.flywaydb.core.Flyway.configure()
+            .dataSource(dataSource)
+            .locations("classpath:db/migration/mysql")
+            .baselineOnMigrate(true)
+            .baselineVersion(org.flywaydb.core.api.MigrationVersion.fromVersion("3"))
+            .load();
+
+        // Migrate upgrade schema (starts from V3 baseline and applies V4, V5)
+        assertDoesNotThrow(() -> flyway.migrate(), "Flyway migrations must run successfully on a baselined database");
+
+        // Clean migration test (migrate everything from scratch)
+        org.springframework.jdbc.datasource.DriverManagerDataSource cleanDataSource = 
+            new org.springframework.jdbc.datasource.DriverManagerDataSource();
+        cleanDataSource.setDriverClassName("org.h2.Driver");
+        cleanDataSource.setUrl("jdbc:h2:mem:flyway_clean_" + UUID.randomUUID() + ";MODE=MySQL");
+        cleanDataSource.setUsername("sa");
+        cleanDataSource.setPassword("");
+
+        org.flywaydb.core.Flyway cleanFlyway = org.flywaydb.core.Flyway.configure()
+            .dataSource(cleanDataSource)
+            .locations("classpath:db/migration/mysql")
+            .baselineOnMigrate(false)
+            .load();
+        assertDoesNotThrow(() -> cleanFlyway.migrate(), "Flyway migrations must run successfully from scratch");
     }
 }

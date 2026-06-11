@@ -3,8 +3,11 @@ package com.foodorderapplication.backend.controller;
 import com.foodorderapplication.backend.model.Order;
 import com.foodorderapplication.backend.model.enums.OrderStatus;
 import com.foodorderapplication.backend.service.OrderService;
+import com.foodorderapplication.backend.dto.CreateOrderRequest;
+import com.foodorderapplication.backend.dto.UpdateOrderStatusRequest;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Slf4j
 public class OrderController {
     private final OrderService orderService;
 
@@ -31,10 +35,13 @@ public class OrderController {
 
     @PostMapping("/api/customer/orders")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<Order> createOrder(Authentication authentication, @RequestBody(required = false) Map<String, String> body) {
-        String address = body != null ? body.get("deliveryAddress") : "Default Address";
-        String method = body != null ? body.get("paymentMethod") : "COD";
-        Order order = orderService.createOrder(authentication.getName(), address, method);
+    public ResponseEntity<Order> createOrder(
+            Authentication authentication,
+            @jakarta.validation.Valid @RequestBody CreateOrderRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String idempotencyKey = request.getHeader("Idempotency-Key");
+        log.info("Place order request by user {} with idempotencyKey={}", authentication.getName(), idempotencyKey);
+        Order order = orderService.createOrder(authentication.getName(), body.getDeliveryAddress(), body.getPaymentMethod(), idempotencyKey);
         return ResponseEntity.ok(order);
     }
 
@@ -72,9 +79,16 @@ public class OrderController {
 
     @PutMapping("/api/admin/orders/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Order> updateStatus(Authentication authentication, @PathVariable Long id,
-            @RequestBody Map<String, String> body) {
-        OrderStatus status = OrderStatus.valueOf(body.get("status"));
+    public ResponseEntity<Order> updateStatus(
+            Authentication authentication,
+            @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody UpdateOrderStatusRequest body) {
+        OrderStatus status;
+        try {
+            status = OrderStatus.valueOf(body.getStatus().trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid order status value: " + body.getStatus());
+        }
         return ResponseEntity.ok(orderService.updateOrderStatusForAdmin(authentication.getName(), id, status));
     }
 }

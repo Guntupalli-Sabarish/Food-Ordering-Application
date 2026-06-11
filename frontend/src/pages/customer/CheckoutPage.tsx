@@ -27,6 +27,7 @@ export const CheckoutPage = () => {
   const { cartItems, clearCart } = useCart();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [loadingQuote, setLoadingQuote] = useState(true);
   const [quoteError, setQuoteError] = useState(false);
   const [quote, setQuote] = useState<QuoteState | null>(null);
@@ -103,7 +104,7 @@ export const CheckoutPage = () => {
 
     try {
       setSubmitting(true);
-      await placeOrder(deliveryAddress, paymentMethod);
+      await placeOrder(deliveryAddress, paymentMethod, idempotencyKey);
       // Online payment initiation is disabled until a real payment provider is integrated.
       // COD orders are accepted immediately.
 

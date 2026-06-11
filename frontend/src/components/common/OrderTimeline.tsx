@@ -4,6 +4,7 @@ import type { OrderStatus } from "@/types";
 const steps: Array<{ status: OrderStatus; label: string; icon: typeof Bike }> = [
   { status: "PENDING_PAYMENT", label: "Awaiting Payment", icon: CreditCard },
   { status: "PLACED", label: "Order placed", icon: Package },
+  { status: "ACCEPTED", label: "Accepted", icon: CheckCircle2 },
   { status: "PREPARING", label: "Kitchen prep", icon: CookingPot },
   { status: "OUT_FOR_DELIVERY", label: "Out for delivery", icon: Bike },
   { status: "DELIVERED", label: "Delivered", icon: CheckCircle2 },

@@ -88,16 +88,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const doAddItem = useCallback(
     async (item: MenuItem) => {
+      const originalItems = [...cartItems];
+      setCartItems((prevItems) => {
+        const existingIdx = prevItems.findIndex((ci) => ci.item.id === item.id);
+        if (existingIdx > -1) {
+          const updated = [...prevItems];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            quantity: updated[existingIdx].quantity + 1,
+          };
+          return updated;
+        } else {
+          return [...prevItems, { item, quantity: 1 }];
+        }
+      });
+
       try {
         const items = await addToCart(item.id, 1);
         setCartItems(items);
         toast({ title: "Added to cart", description: item.name });
       } catch (error) {
+        setCartItems(originalItems);
         const message = error instanceof Error ? error.message : "Unable to add item";
         toast({ title: "Cart update failed", description: message, variant: "destructive" });
       }
     },
-    [toast]
+    [toast, cartItems]
   );
 
   const addItem = useCallback(
@@ -120,18 +136,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!pendingAdd) return;
     const item = pendingAdd.item;
     setPendingAdd(null);
+    const originalItems = [...cartItems];
     // Clear the cart first, then add the new item
     try {
-      await apiClearCart();
       setCartItems([]);
+      await apiClearCart();
       const items = await addToCart(item.id, 1);
       setCartItems(items);
       toast({ title: "Added to cart", description: item.name });
     } catch (error) {
+      setCartItems(originalItems);
       const message = error instanceof Error ? error.message : "Unable to add item";
       toast({ title: "Cart update failed", description: message, variant: "destructive" });
     }
-  }, [pendingAdd, toast]);
+  }, [pendingAdd, toast, cartItems]);
 
   const handleConflictCancel = useCallback(() => {
     setPendingAdd(null);
@@ -141,27 +159,41 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!user) {
       return;
     }
+    const originalItems = [...cartItems];
+    setCartItems((prevItems) => prevItems.filter((ci) => ci.item.id !== itemId));
     try {
       const items = await removeCartItem(itemId);
       setCartItems(items);
     } catch (error) {
+      setCartItems(originalItems);
       const message = error instanceof Error ? error.message : "Unable to remove item";
       toast({ title: "Cart update failed", description: message, variant: "destructive" });
     }
-  }, [toast, user]);
+  }, [toast, user, cartItems]);
 
   const updateQuantity = useCallback(async (itemId: string, quantity: number) => {
     if (!user) {
       return;
     }
+    if (quantity < 0) return;
+    const originalItems = [...cartItems];
+    setCartItems((prevItems) => {
+      if (quantity === 0) {
+        return prevItems.filter((ci) => ci.item.id !== itemId);
+      }
+      return prevItems.map((ci) =>
+        ci.item.id === itemId ? { ...ci, quantity } : ci
+      );
+    });
     try {
       const items = await updateCartItem(itemId, quantity);
       setCartItems(items);
     } catch (error) {
+      setCartItems(originalItems);
       const message = error instanceof Error ? error.message : "Unable to update quantity";
       toast({ title: "Cart update failed", description: message, variant: "destructive" });
     }
-  }, [toast, user]);
+  }, [toast, user, cartItems]);
 
   const totalAmount = useMemo(
     () =>

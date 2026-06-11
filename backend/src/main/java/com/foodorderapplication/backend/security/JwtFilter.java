@@ -30,7 +30,7 @@ public class JwtFilter extends OncePerRequestFilter {
     @Value("${app.dev.bypass-email-verification:false}")
     private boolean bypassEmailVerification;
 
-    public JwtFilter(JwtUtil jwtUtil, UserRepository userRepository, Environment env) {
+    public JwtFilter(JwtUtil jwtUtil, @org.springframework.context.annotation.Lazy UserRepository userRepository, Environment env) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.env = env;

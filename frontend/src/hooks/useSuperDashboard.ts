@@ -4,15 +4,13 @@ import {
   getPlatformMetrics,
   getSalesSeries,
   getSystemLogs,
-  getUsers,
 } from "@/apis";
-import type { ChartPoint, DashboardMetric, User } from "@/types";
+import type { ChartPoint, DashboardMetric } from "@/types";
 
 export const useSuperDashboard = () => {
   const [metrics, setMetrics] = useState<DashboardMetric[]>([]);
   const [salesSeries, setSalesSeries] = useState<ChartPoint[]>([]);
   const [orderVolume, setOrderVolume] = useState<ChartPoint[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<
     Array<{ id: string; level: string; message: string; time: string }>
   >([]);
@@ -25,7 +23,6 @@ export const useSuperDashboard = () => {
         getPlatformMetrics(),
         getSalesSeries(),
         getOrderVolumeSeries(),
-        getUsers(),
         getSystemLogs(),
       ]);
 
@@ -43,10 +40,7 @@ export const useSuperDashboard = () => {
         setOrderVolume(results[2].value);
       }
       if (results[3].status === "fulfilled") {
-        setUsers(results[3].value);
-      }
-      if (results[4].status === "fulfilled") {
-        setLogs(results[4].value);
+        setLogs(results[3].value);
       }
       setLoading(false);
     };
@@ -58,5 +52,5 @@ export const useSuperDashboard = () => {
     };
   }, []);
 
-  return { metrics, salesSeries, orderVolume, users, logs, loading };
+  return { metrics, salesSeries, orderVolume, logs, loading };
 };

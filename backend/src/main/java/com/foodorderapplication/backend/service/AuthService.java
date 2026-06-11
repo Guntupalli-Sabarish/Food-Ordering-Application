@@ -268,7 +268,7 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    public AuthResponse updateProfile(String email, Map<String, String> updates) {
+    public AuthResponse updateProfile(String email, com.foodorderapplication.backend.dto.auth.UpdateProfileRequest updates) {
         if (isBlank(email)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
@@ -282,12 +282,12 @@ public class AuthService {
                                                 HttpStatus.NOT_FOUND, "User not found"));
 
         if (updates != null) {
-            String newName = updates.get("name");
+            String newName = updates.getName();
             if (!isBlank(newName)) {
                 user.setName(newName);
             }
 
-            String newPassword = updates.get("password");
+            String newPassword = updates.getPassword();
             if (!isBlank(newPassword)) {
                 validatePasswordPolicy(newPassword);
                 user.setPassword(passwordEncoder.encode(newPassword));

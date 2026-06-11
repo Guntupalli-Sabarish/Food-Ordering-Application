@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { getMenuForRestaurant, getRestaurantById } from "@/apis";
 import type { MenuItem, Restaurant } from "@/types";
 
+const menuCache = new Map<string, { restaurant: Restaurant; items: MenuItem[] }>();
+
 export const useMenu = (restaurantId: string) => {
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = menuCache.get(restaurantId);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(cached?.restaurant ?? null);
+  const [items, setItems] = useState<MenuItem[]>(cached?.items ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -15,15 +18,13 @@ export const useMenu = (restaurantId: string) => {
         if (active) {
           setRestaurant(restaurantData);
           setItems(menuData);
+          menuCache.set(restaurantId, { restaurant: restaurantData, items: menuData });
+          setLoading(false);
         }
       })
       .catch((err: Error) => {
         if (active) {
           setError(err.message);
-        }
-      })
-      .finally(() => {
-        if (active) {
           setLoading(false);
         }
       });

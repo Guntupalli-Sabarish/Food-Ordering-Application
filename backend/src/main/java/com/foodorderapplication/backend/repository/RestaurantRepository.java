@@ -15,9 +15,9 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 	}
 
 	@Query("select r from Restaurant r "
-			+ "where (:name is null or lower(r.name) like lower(concat('%', :name, '%'))) "
-			+ "and (:cuisine is null or lower(r.cuisine) like lower(concat('%', :cuisine, '%'))) "
-			+ "and (:address is null or lower(r.address) like lower(concat('%', :address, '%'))) "
+			+ "where (cast(:name as string) is null or lower(r.name) like lower(concat('%', cast(:name as string), '%'))) "
+			+ "and (cast(:cuisine as string) is null or lower(r.cuisine) like lower(concat('%', cast(:cuisine as string), '%'))) "
+			+ "and (cast(:address as string) is null or lower(r.address) like lower(concat('%', cast(:address as string), '%'))) "
 			+ "and (:active is null or r.active = :active)")
 	org.springframework.data.domain.Page<Restaurant> search(@Param("name") String name,
 			@Param("cuisine") String cuisine,

@@ -44,6 +44,9 @@ const loadStoredUser = (): User | null => {
   }
 };
 
+let oauthExchangePromise: Promise<User> | null = null;
+let oauthIsNew = false;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -56,63 +59,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearStorage();
   }, []);
 
-  // ── OAuth code exchange (Google redirect) ──────────────────────────────────
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const codeParam = params.get("code");
-    const isNewParam = params.get("isNew");
-
-    if (codeParam) {
-      oauth2Exchange(codeParam)
-        .then((parsedUser) => {
-          setUser(parsedUser);
-          persistUser(parsedUser);
-          setReady(true);
-          if (isNewParam === "true") {
-            toast({ title: "Welcome to FoodFlow!", description: "Your account was successfully created via Google." });
-          } else {
-            toast({ title: "Welcome back!", description: "Signed in with Google." });
-          }
-        })
-        .catch(() => {
-          clearAuth();
-          setReady(true);
-          toast({ title: "Login failed", description: "Google authentication failed.", variant: "destructive" });
-        })
-        .finally(() => {
-          const cleanUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-        });
-    }
-  }, [clearAuth, toast]);
-
-  // ── Session hydration on mount ─────────────────────────────────────────────
-  // Always call /api/auth/profile to verify the HttpOnly cookie is still valid.
+  // ── Unified initialization flow ───────────────────────────────────────────
   useEffect(() => {
     let active = true;
-    const hydrateProfile = async () => {
-      try {
-        const profile = await getProfile();
-        if (active) {
-          setUser(profile);
-          persistUser(profile);
+    
+    const initializeAuth = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const codeParam = params.get("code") || (oauthExchangePromise ? "in-progress" : null);
+      const isNewParam = params.get("isNew");
+
+      if (codeParam) {
+        if (!oauthExchangePromise && codeParam !== "in-progress") {
+          oauthExchangePromise = oauth2Exchange(codeParam);
+          oauthIsNew = isNewParam === "true";
+          // Clean URL immediately so it's not bookmarked or replayed
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
         }
-      } catch {
-        // Cookie absent or expired — clear stale UI state
-        if (active) {
-          clearAuth();
+
+        try {
+          const parsedUser = (await oauthExchangePromise) as User;
+          if (active) {
+            setUser(parsedUser);
+            persistUser(parsedUser);
+            if (oauthIsNew) {
+              toast({ title: "Welcome to FoodFlow!", description: "Your account was successfully created via Google." });
+            } else {
+              toast({ title: "Welcome back!", description: "Signed in with Google." });
+            }
+          }
+        } catch {
+          if (active) {
+            clearAuth();
+            toast({ title: "Login failed", description: "Google authentication failed.", variant: "destructive" });
+          }
+        } finally {
+          if (active) {
+            setReady(true);
+            oauthExchangePromise = null;
+          }
         }
-      } finally {
-        if (active) {
-          setReady(true);
+      } else {
+        // Normal profile hydration
+        try {
+          const profile = await getProfile();
+          if (active) {
+            setUser(profile);
+            persistUser(profile);
+          }
+        } catch {
+          if (active) {
+            clearAuth();
+          }
+        } finally {
+          if (active) {
+            setReady(true);
+          }
         }
       }
     };
-    hydrateProfile();
+
+    initializeAuth();
+
     return () => {
       active = false;
     };
-  }, [clearAuth]);
+  }, [clearAuth, toast]);
 
   // ── Email / password login ─────────────────────────────────────────────────
   // The backend now sets the HttpOnly cookie in its response.

@@ -137,7 +137,25 @@ public class CartService {
         CartDTO dto = new CartDTO();
         dto.setCartId(cart.getCartId());
         dto.setUserId(cart.getUserId());
-        dto.setItems(cartItemRepository.findByCart(cart).stream().map(this::toCartItemDto).toList());
+        java.util.List<CartItem> items = cartItemRepository.findByCart(cart);
+        if (items.isEmpty()) {
+            dto.setItems(java.util.Collections.emptyList());
+            return dto;
+        }
+        java.util.List<Long> menuItemIds = items.stream().map(CartItem::getMenuItemId).toList();
+        java.util.Map<Long, MenuItem> menuItemMap = menuItemRepository.findAllById(menuItemIds).stream()
+                .collect(java.util.stream.Collectors.toMap(MenuItem::getMenuItemId, java.util.function.Function.identity()));
+        
+        dto.setItems(items.stream().map(item -> {
+            MenuItem menuItem = menuItemMap.get(item.getMenuItemId());
+            if (menuItem == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found");
+            }
+            CartItemDTO itemDto = new CartItemDTO();
+            itemDto.setMenuItem(toMenuItemDto(menuItem));
+            itemDto.setQuantity(item.getQuantity());
+            return itemDto;
+        }).toList());
         return dto;
     }
 

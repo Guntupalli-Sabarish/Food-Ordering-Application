@@ -29,6 +29,7 @@ import { createRestaurant, deleteRestaurant, getUsers, updateRestaurant } from "
 import { useManagedRestaurants } from "@/hooks/useManagedRestaurants";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useToast } from "@/hooks/use-toast";
+import type { User } from "@/types";
 
 const CUISINE_TYPES = [
   "AMERICAN",
@@ -74,7 +75,7 @@ const CUISINE_TYPES = [
 
 export const SuperRestaurantManagementPage = () => {
   usePageTitle("Restaurant Management");
-  const { restaurants, refresh } = useManagedRestaurants();
+  const { restaurants, loading, page, setPage, totalPages, refresh } = useManagedRestaurants();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -89,10 +90,10 @@ export const SuperRestaurantManagementPage = () => {
 
   useEffect(() => {
     let activeFlag = true;
-    getUsers()
+    getUsers(0, 1000)
       .then((data) => {
         if (activeFlag) {
-          setAdmins(data.filter((user) => user.role === "ADMIN"));
+          setAdmins(data.content.filter((user: User) => user.role === "ADMIN"));
         }
       })
       .catch((error) => {
@@ -354,6 +355,30 @@ export const SuperRestaurantManagementPage = () => {
           ))}
         </TableBody>
       </Table>
+
+      <div className="flex items-center justify-between py-4">
+        <span className="text-sm text-muted-foreground">
+          Page {totalPages > 0 ? page + 1 : 0} of {totalPages}
+        </span>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0 || loading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1 || loading}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>

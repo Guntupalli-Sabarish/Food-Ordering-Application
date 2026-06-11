@@ -73,4 +73,12 @@ public class AnalyticsController {
         ApiResponse response = ApiResponse.ok("Top items", analyticsService.getAdminTopItems(authentication.getName()), request.getRequestURI(), HttpStatus.OK.value());
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/admin/analytics/orders")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse> adminOrders(Authentication authentication, HttpServletRequest request) {
+        logger.info("Admin analytics orders requested by user with role {}", UserRole.ADMIN);
+        ApiResponse response = ApiResponse.ok("Order analytics", analyticsService.getAdminOrders(authentication.getName()), request.getRequestURI(), HttpStatus.OK.value());
+        return ResponseEntity.ok(response);
+    }
 }

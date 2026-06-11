@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -6,11 +7,25 @@ import { useAdminOrders } from "@/hooks/useAdminOrders";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { updateOrderStatus } from "@/apis";
 import { useToast } from "@/hooks/use-toast";
-import type { Order } from "@/types";
+import type { Order, OrderStatus } from "@/types";
+
+const getAllowedNextStatuses = (current: OrderStatus): OrderStatus[] => {
+  const list: OrderStatus[] = [current];
+  if (current === "PLACED") {
+    list.push("ACCEPTED", "CANCELLED");
+  } else if (current === "ACCEPTED") {
+    list.push("PREPARING", "CANCELLED");
+  } else if (current === "PREPARING") {
+    list.push("OUT_FOR_DELIVERY", "CANCELLED");
+  } else if (current === "OUT_FOR_DELIVERY") {
+    list.push("DELIVERED", "CANCELLED");
+  }
+  return list;
+};
 
 export const AdminOrderManagementPage = () => {
   usePageTitle("Order Management");
-  const { orders, refresh } = useAdminOrders();
+  const { orders, loading, page, setPage, totalPages, refresh } = useAdminOrders();
   const { toast } = useToast();
 
   const handleStatusChange = async (orderId: string, status: string) => {
@@ -64,11 +79,11 @@ export const AdminOrderManagementPage = () => {
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PLACED">PLACED</SelectItem>
-                      <SelectItem value="PREPARING">PREPARING</SelectItem>
-                      <SelectItem value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</SelectItem>
-                      <SelectItem value="DELIVERED">DELIVERED</SelectItem>
-                      <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                      {getAllowedNextStatuses(order.status).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -77,6 +92,30 @@ export const AdminOrderManagementPage = () => {
           ))}
         </TableBody>
       </Table>
+
+      <div className="flex items-center justify-between py-4">
+        <span className="text-sm text-muted-foreground">
+          Page {totalPages > 0 ? page + 1 : 0} of {totalPages}
+        </span>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0 || loading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1 || loading}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

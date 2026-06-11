@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,11 +69,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Value("${app.security.trusted-proxies:127.0.0.1,::1,0:0:0:0:0:0:0:1}")
     private String trustedProxiesRaw;
 
-    private volatile Set<String> trustedProxySet;
+    private List<IpMatcher> trustedProxies;
 
     @jakarta.annotation.PostConstruct
     void init() {
-        trustedProxySet = new HashSet<>(Arrays.asList(trustedProxiesRaw.split(",\\s*")));
+        trustedProxies = java.util.Arrays.stream(trustedProxiesRaw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(IpMatcher::new)
+                .toList();
         sweeper.scheduleAtFixedRate(
                 this::sweepExpiredEntries,
                 SWEEP_INTERVAL_SECONDS,
@@ -139,26 +144,29 @@ public class RateLimitFilter extends OncePerRequestFilter {
      */
     private String resolveClientIp(HttpServletRequest request) {
         String remoteAddr = request.getRemoteAddr();
-        if (isTrustedProxy(remoteAddr)) {
-            String xff = request.getHeader("X-Forwarded-For");
-            if (xff != null && !xff.isBlank()) {
-                // Take the leftmost (client-provided) address
-                String candidate = xff.split(",")[0].trim();
-                if (!candidate.isEmpty()) {
-                    return candidate;
-                }
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff == null || xff.isBlank()) {
+            return remoteAddr;
+        }
+
+        String[] ips = xff.split(",");
+        String currentIp = remoteAddr;
+
+        // Traverse the X-Forwarded-For list from right to left
+        for (int i = ips.length - 1; i >= 0; i--) {
+            if (isTrustedProxy(currentIp)) {
+                currentIp = ips[i].trim();
+            } else {
+                break;
             }
         }
-        return remoteAddr;
+        return currentIp;
     }
 
     private boolean isTrustedProxy(String addr) {
         if (addr == null) return false;
-        Set<String> proxies = trustedProxySet;
-        if (proxies.contains(addr)) return true;
-        // Normalize bracketed IPv6 addresses such as [::1]
-        String normalized = addr.replaceAll("[\\[\\]]", "");
-        return proxies.contains(normalized);
+        String normalized = addr.replaceAll("[\\[\\]]", "").trim();
+        return trustedProxies.stream().anyMatch(matcher -> matcher.matches(normalized));
     }
 
     // ── sweep ────────────────────────────────────────────────────────────────
@@ -209,6 +217,57 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         synchronized boolean isExpired(long now) {
             return now > resetTime;
+        }
+    }
+
+    private static class IpMatcher {
+        private final java.net.InetAddress requiredAddress;
+        private final int prefixLength;
+
+        public IpMatcher(String ipAddress) {
+            String[] parts = ipAddress.split("/");
+            String baseIp = parts[0];
+            try {
+                this.requiredAddress = java.net.InetAddress.getByName(baseIp);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid IP address: " + baseIp, e);
+            }
+            if (parts.length > 1) {
+                this.prefixLength = Integer.parseInt(parts[1]);
+                if (prefixLength < 0 || prefixLength > (requiredAddress.getAddress().length * 8)) {
+                    throw new IllegalArgumentException("Invalid prefix length: " + parts[1]);
+                }
+            } else {
+                this.prefixLength = requiredAddress.getAddress().length * 8;
+            }
+        }
+
+        public boolean matches(String clientIp) {
+            try {
+                java.net.InetAddress address = java.net.InetAddress.getByName(clientIp);
+                if (requiredAddress.getClass() != address.getClass()) {
+                    return false;
+                }
+                byte[] requiredBytes = requiredAddress.getAddress();
+                byte[] addressBytes = address.getAddress();
+
+                int bitCount = prefixLength;
+                for (int i = 0; i < requiredBytes.length && bitCount > 0; i++) {
+                    int mask = 0xFF;
+                    if (bitCount < 8) {
+                        mask = (mask << (8 - bitCount)) & 0xFF;
+                        bitCount = 0;
+                    } else {
+                        bitCount -= 8;
+                    }
+                    if ((requiredBytes[i] & mask) != (addressBytes[i] & mask)) {
+                        return false;
+                    }
+                }
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
         }
     }
 }

@@ -8,12 +8,12 @@ import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-@RestControllerAdvice
+
 public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
@@ -42,7 +42,28 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        String message = "Validation failed";
+        StringBuilder sb = new StringBuilder("Validation failed: ");
+        ex.getBindingResult().getFieldErrors().forEach(error -> 
+            sb.append("[").append(error.getField()).append(": ").append(error.getDefaultMessage()).append("] ")
+        );
+        String message = sb.toString().trim();
+        logger.warn("Validation failed: {}", message);
+        ApiResponse response = ApiResponse.error(message, null, request.getRequestURI(), HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse> handleMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex, HttpServletRequest request) {
+        logger.warn("Malformed JSON request: {}", ex.getMessage());
+        ApiResponse response = ApiResponse.error("Malformed JSON request body", null, request.getRequestURI(), HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse> handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        logger.warn("Type mismatch: {}", ex.getMessage());
+        String typeName = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown";
+        String message = String.format("Parameter '%s' should be of type %s", ex.getName(), typeName);
         ApiResponse response = ApiResponse.error(message, null, request.getRequestURI(), HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }

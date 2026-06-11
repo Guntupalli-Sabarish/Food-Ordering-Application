@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Search, Sparkles, Flame, ArrowRight } from "lucide-react";
+import { Sparkles, Flame, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RestaurantCard } from "@/components/common/RestaurantCard";
 import { useRestaurants } from "@/hooks/useRestaurants";
@@ -51,16 +50,6 @@ export const HomePage = () => {
   usePageTitle("Home");
   const navigate = useNavigate();
   const { data, loading } = useRestaurants();
-  const [search, setSearch] = useState("");
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (search.trim()) {
-      navigate(`/restaurants?q=${encodeURIComponent(search.trim())}`);
-    } else {
-      navigate("/restaurants");
-    }
-  };
 
   return (
     <div className="space-y-10 animate-fade-in">
@@ -85,22 +74,12 @@ export const HomePage = () => {
             Discover the best restaurants near you. Track live orders and reorder your favorites in seconds.
           </p>
 
-          <form onSubmit={handleSearch} className="flex items-center gap-2 rounded-2xl bg-white/15 backdrop-blur-sm p-1.5 border border-white/30">
-            <Search className="ml-2 h-4 w-4 shrink-0 text-white/70" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search dishes or restaurants…"
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/60 outline-none min-w-0"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              className="shrink-0 rounded-xl bg-white text-brand-600 hover:bg-white/90 font-semibold"
-            >
-              Search
-            </Button>
-          </form>
+          <Button
+            onClick={() => navigate("/restaurants")}
+            className="rounded-xl bg-white text-brand-600 hover:bg-white/90 font-semibold px-6 py-2.5 shadow-md"
+          >
+            Explore Restaurants
+          </Button>
         </div>
       </section>
 

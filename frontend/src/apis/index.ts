@@ -7,6 +7,7 @@ import type {
   Restaurant,
   Role,
   User,
+  PaginatedResponse,
 } from "@/types";
 import { getRestaurantImage, getMenuItemImage } from "@/utils/images";
 
@@ -155,6 +156,22 @@ const parseApiError = async (response: Response): Promise<string> => {
   }
 };
 
+const getCsrfToken = () => {
+  const name = "XSRF-TOKEN=";
+  const decodedCookie = decodeURIComponent(document.cookie);
+  const ca = decodedCookie.split(";");
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === " ") {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) === 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return null;
+};
+
 const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> => {
   const token = getAuthToken();
   const headers = new Headers(options?.headers);
@@ -164,6 +181,12 @@ const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> =>
   }
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const csrfToken = getCsrfToken();
+  const method = options?.method?.toUpperCase() ?? "GET";
+  if (["POST", "PUT", "DELETE"].includes(method) && csrfToken) {
+    headers.set("X-XSRF-TOKEN", csrfToken);
   }
 
   const response = await fetch(buildUrl(path), {
@@ -176,8 +199,10 @@ const apiRequest = async <T>(path: string, options?: RequestInit): Promise<T> =>
     // Global 401 handler: clear session and redirect to login on unauthorized
     if (response.status === 401) {
       localStorage.removeItem("foodapp.auth");
-      // Avoid redirect loop if we are already on the login page
-      if (!window.location.pathname.includes("/login")) {
+      // Avoid redirect loop if we are already on a public page
+      const publicPaths = ["/login", "/register", "/landing", "/forgot-password", "/reset-password"];
+      const isPublicPath = publicPaths.some(path => window.location.pathname.startsWith(path));
+      if (!isPublicPath) {
         window.location.href = "/login";
       }
     }
@@ -204,7 +229,7 @@ const toOrderStatus = (status: string): OrderStatus => {
     case "PENDING":
       return "PLACED";
     case "ACCEPTED":
-      return "PREPARING";
+      return "ACCEPTED";
     case "PREPARING":
       return "PREPARING";
     case "OUT_FOR_DELIVERY":
@@ -416,9 +441,13 @@ export const updateAdminRestaurant = async (payload: {
   return mapRestaurant(data);
 };
 
-export const getSuperRestaurants = async () => {
-  const page = await apiRequest<PageResponse<RestaurantDTO>>("/api/superadmin/restaurants?size=200&sort=name,asc");
-  return (page.content ?? []).map(mapRestaurant);
+export const getSuperRestaurants = async (page = 0, size = 10): Promise<PaginatedResponse<Restaurant>> => {
+  const pageRes = await apiRequest<PageResponse<RestaurantDTO>>(`/api/superadmin/restaurants?page=${page}&size=${size}&sort=name,asc`);
+  return {
+    content: (pageRes.content ?? []).map(mapRestaurant),
+    totalPages: pageRes.totalPages ?? 0,
+    totalElements: pageRes.totalElements ?? 0,
+  };
 };
 
 export const createRestaurant = async (payload: {
@@ -545,9 +574,14 @@ export const clearCart = async () => {
   }));
 };
 
-export const placeOrder = async (deliveryAddress: string, paymentMethod: string) => {
+export const placeOrder = async (deliveryAddress: string, paymentMethod: string, idempotencyKey?: string) => {
+  const headers: Record<string, string> = {};
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
   const data = await apiRequest<OrderDTO>("/api/customer/orders", {
     method: "POST",
+    headers,
     body: JSON.stringify({ deliveryAddress, paymentMethod }),
   });
   return mapOrder(data);
@@ -559,9 +593,13 @@ export const getCheckoutQuote = async () => {
   );
 };
 
-export const getOrders = async () => {
-  const page = await apiRequest<PageResponse<OrderDTO>>("/api/customer/orders?size=50&sort=createdAt,desc");
-  return (page.content ?? []).map(mapOrder);
+export const getOrders = async (page = 0, size = 10): Promise<PaginatedResponse<Order>> => {
+  const pageRes = await apiRequest<PageResponse<OrderDTO>>(`/api/customer/orders?page=${page}&size=${size}&sort=createdAt,desc`);
+  return {
+    content: (pageRes.content ?? []).map(mapOrder),
+    totalPages: pageRes.totalPages ?? 0,
+    totalElements: pageRes.totalElements ?? 0,
+  };
 };
 
 export const getOrderById = async (id: string) => {
@@ -582,9 +620,13 @@ export const trackOrder = async (id: string) => {
   );
 };
 
-export const getAdminOrders = async () => {
-  const page = await apiRequest<PageResponse<OrderDTO>>("/api/admin/orders?size=100&sort=createdAt,desc");
-  return (page.content ?? []).map(mapOrder);
+export const getAdminOrders = async (page = 0, size = 10): Promise<PaginatedResponse<Order>> => {
+  const pageRes = await apiRequest<PageResponse<OrderDTO>>(`/api/admin/orders?page=${page}&size=${size}&sort=createdAt,desc`);
+  return {
+    content: (pageRes.content ?? []).map(mapOrder),
+    totalPages: pageRes.totalPages ?? 0,
+    totalElements: pageRes.totalElements ?? 0,
+  };
 };
 
 export const updateOrderStatus = async (id: string, status: string) => {
@@ -670,16 +712,12 @@ export const getOrderVolumeSeries = async (): Promise<ChartPoint[]> => {
       { name: "Cancelled", value: data.cancelled ?? 0 },
     ];
   } catch {
-    const ordersPage = await apiRequest<PageResponse<OrderDTO>>("/api/admin/orders?size=500");
-    const counts = (ordersPage.content ?? []).reduce(
-      (acc, order) => {
-        const status = order.orderStatus ?? "PENDING";
-        acc[status] = (acc[status] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+    const data = await unwrapApiResponse<Record<string, number>>("/api/admin/analytics/orders");
+    return [
+      { name: "Completed", value: data.DELIVERED ?? 0 },
+      { name: "Pending", value: (data.PENDING ?? 0) + (data.PENDING_PAYMENT ?? 0) + (data.ACCEPTED ?? 0) + (data.PREPARING ?? 0) + (data.OUT_FOR_DELIVERY ?? 0) },
+      { name: "Cancelled", value: data.CANCELLED ?? 0 },
+    ];
   }
 };
 
@@ -709,9 +747,13 @@ export const getPlatformMetrics = async (): Promise<DashboardMetric[]> => {
   ];
 };
 
-export const getUsers = async () => {
-  const page = await apiRequest<PageResponse<UserDTO>>("/api/superadmin/users?size=200&sort=userId,asc");
-  return (page.content ?? []).map(mapUser);
+export const getUsers = async (page = 0, size = 10): Promise<PaginatedResponse<User>> => {
+  const pageRes = await apiRequest<PageResponse<UserDTO>>(`/api/superadmin/users?page=${page}&size=${size}&sort=userId,asc`);
+  return {
+    content: (pageRes.content ?? []).map(mapUser),
+    totalPages: pageRes.totalPages ?? 0,
+    totalElements: pageRes.totalElements ?? 0,
+  };
 };
 
 export const updateUserRole = async (id: string, role: Role) => {

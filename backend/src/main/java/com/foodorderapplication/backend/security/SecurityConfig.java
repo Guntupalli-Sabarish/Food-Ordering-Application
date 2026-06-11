@@ -45,14 +45,30 @@ public class SecurityConfig {
                          java.util.Arrays.asList(env.getActiveProfiles()).contains("default") ||
                          !java.util.Arrays.asList(env.getActiveProfiles()).contains("prod"));
 
-                http.csrf(csrf -> csrf.disable())
+                org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler requestHandler =
+                                new org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler();
+                requestHandler.setCsrfRequestAttributeName(null);
+
+                http.csrf(csrf -> csrf
+                                                .ignoringRequestMatchers(
+                                                                "/api/auth/register",
+                                                                "/api/auth/login",
+                                                                "/api/auth/logout",
+                                                                "/api/auth/forgot-password",
+                                                                "/api/auth/reset-password",
+                                                                "/api/auth/oauth2/exchange",
+                                                                "/api/health"
+                                                )
+                                                .csrfTokenRepository(org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse())
+                                                .csrfTokenRequestHandler(requestHandler)
+                                )
                                 .cors(Customizer.withDefaults())
                                 .sessionManagement(
                                                 session -> session
                                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(
                                                 auth -> {
-                                                        var registry = auth.requestMatchers(
+                                                         var registry = auth.requestMatchers(
                                                                         "/api/auth/register",
                                                                         "/api/auth/login",
                                                                         "/api/auth/logout",
@@ -64,17 +80,15 @@ public class SecurityConfig {
                                                                         "/oauth2/**",
                                                                         "/login/oauth2/**")
                                                                         .permitAll();
-                                                        
-                                                        if (isDev) {
-                                                                registry.requestMatchers(
-                                                                                "/swagger-ui/**",
-                                                                                "/v3/api-docs/**",
-                                                                                "/swagger-resources/**",
-                                                                                "/webjars/**")
-                                                                                .permitAll();
-                                                        }
 
-                                                        registry.requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+                                                         auth.requestMatchers(
+                                                                        "/swagger-ui/**",
+                                                                        "/v3/api-docs/**",
+                                                                        "/swagger-resources/**",
+                                                                        "/webjars/**")
+                                                                        .hasAnyRole("ADMIN", "SUPER_ADMIN");
+
+                                                         auth.requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                                                                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                                                         .requestMatchers("/api/superadmin/**").hasRole("SUPER_ADMIN")
                                                                         .anyRequest()
@@ -82,8 +96,15 @@ public class SecurityConfig {
                                                 })
                                 .oauth2Login(oauth -> oauth
                                                 .successHandler(oAuth2SuccessHandler))
-                                .addFilterBefore(rateLimitFilter, JwtFilter.class)
-                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                                .exceptionHandling(exceptions -> exceptions
+                                                .defaultAuthenticationEntryPointFor(
+                                                                new org.springframework.security.web.authentication.HttpStatusEntryPoint(org.springframework.http.HttpStatus.UNAUTHORIZED),
+                                                                request -> request.getRequestURI().startsWith("/api/")
+                                                )
+                                )
+                                .addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class)
+                                .addFilterBefore(jwtFilter, org.springframework.security.web.csrf.CsrfFilter.class)
+                                .addFilterBefore(rateLimitFilter, JwtFilter.class);
 
                 return http.build();
         }
@@ -94,7 +115,7 @@ public class SecurityConfig {
                 List<String> origins = List.of(allowedOriginsRaw.split(","));
                 config.setAllowedOrigins(origins);
                 config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+                config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN", "x-xsrf-token", "Idempotency-Key", "idempotency-key"));
                 config.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -117,5 +138,36 @@ public class SecurityConfig {
                         return new org.springframework.security.core.userdetails.User(
                                         user.getEmail(), user.getPassword(), List.of(authority));
                 };
+        }
+
+        @Bean
+        public org.springframework.boot.web.servlet.FilterRegistrationBean<JwtFilter> jwtFilterRegistration(JwtFilter filter) {
+                org.springframework.boot.web.servlet.FilterRegistrationBean<JwtFilter> registration =
+                                new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+                registration.setEnabled(false);
+                return registration;
+        }
+
+        @Bean
+        public org.springframework.boot.web.servlet.FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter filter) {
+                org.springframework.boot.web.servlet.FilterRegistrationBean<RateLimitFilter> registration =
+                                new org.springframework.boot.web.servlet.FilterRegistrationBean<>(filter);
+                registration.setEnabled(false);
+                return registration;
+        }
+
+        private static class CsrfCookieFilter extends org.springframework.web.filter.OncePerRequestFilter {
+                @Override
+                protected void doFilterInternal(jakarta.servlet.http.HttpServletRequest request,
+                                                jakarta.servlet.http.HttpServletResponse response,
+                                                jakarta.servlet.FilterChain filterChain)
+                                throws jakarta.servlet.ServletException, java.io.IOException {
+                        org.springframework.security.web.csrf.CsrfToken csrfToken =
+                                        (org.springframework.security.web.csrf.CsrfToken) request.getAttribute(org.springframework.security.web.csrf.CsrfToken.class.getName());
+                        if (csrfToken != null) {
+                                csrfToken.getToken(); // Forces generation of the token to be set in the cookie
+                        }
+                        filterChain.doFilter(request, response);
+                }
         }
 }

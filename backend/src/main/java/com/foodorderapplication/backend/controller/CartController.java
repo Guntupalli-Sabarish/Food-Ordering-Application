@@ -1,8 +1,9 @@
 package com.foodorderapplication.backend.controller;
 
 import com.foodorderapplication.backend.dto.CartDTO;
+import com.foodorderapplication.backend.dto.CartAddItemRequest;
+import com.foodorderapplication.backend.dto.CartUpdateItemRequest;
 import com.foodorderapplication.backend.service.CartService;
-import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -31,41 +32,20 @@ public class CartController {
 
     @PostMapping("/api/customer/cart/add")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<CartDTO> addItem(Authentication authentication, @RequestBody Map<String, Object> body) {
-        Long menuItemId = parseLong(body.get("menuItemId"));
-        int quantity = parseInt(body.getOrDefault("quantity", 1));
-        CartDTO cart = cartService.addItem(authentication.getName(), menuItemId, quantity);
+    public ResponseEntity<CartDTO> addItem(Authentication authentication, @jakarta.validation.Valid @RequestBody CartAddItemRequest body) {
+        CartDTO cart = cartService.addItem(authentication.getName(), body.getMenuItemId(), body.getQuantity());
         return ResponseEntity.ok(cart);
     }
 
     @PutMapping("/api/customer/cart/update/{itemId}")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CartDTO> updateItem(Authentication authentication, @PathVariable Long itemId,
-            @RequestBody Map<String, Object> body) {
-        int quantity = parseInt(body.getOrDefault("quantity", 0));
-        CartDTO cart = cartService.updateItem(authentication.getName(), itemId, quantity);
+            @jakarta.validation.Valid @RequestBody CartUpdateItemRequest body) {
+        CartDTO cart = cartService.updateItem(authentication.getName(), itemId, body.getQuantity());
         return ResponseEntity.ok(cart);
     }
 
-    private Long parseLong(Object obj) {
-        if (obj == null) {
-            throw new IllegalArgumentException("Required parameter is missing");
-        }
-        if (obj instanceof Number) {
-            return ((Number) obj).longValue();
-        }
-        return Long.parseLong(obj.toString());
-    }
 
-    private int parseInt(Object obj) {
-        if (obj == null) {
-            return 0;
-        }
-        if (obj instanceof Number) {
-            return ((Number) obj).intValue();
-        }
-        return Integer.parseInt(obj.toString());
-    }
 
     @DeleteMapping("/api/customer/cart/remove/{itemId}")
     @PreAuthorize("hasRole('CUSTOMER')")

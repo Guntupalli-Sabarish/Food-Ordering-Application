@@ -41,6 +41,7 @@ export interface CartItem {
 export type OrderStatus =
   | "PENDING_PAYMENT"
   | "PLACED"
+  | "ACCEPTED"
   | "PREPARING"
   | "OUT_FOR_DELIVERY"
   | "DELIVERED"
@@ -65,4 +66,10 @@ export interface DashboardMetric {
 export interface ChartPoint {
   name: string;
   value: number;
+}
+
+export interface PaginatedResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
 }

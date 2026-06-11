@@ -127,6 +127,18 @@ public class AnalyticsService {
         return data;
     }
 
+    /**
+     * Order volume breakdown scoped to the authenticated admin's own restaurant.
+     */
+    public Map<String, Object> getAdminOrders(String adminEmail) {
+        Long restaurantId = resolveRestaurantId(adminEmail);
+        Map<String, Object> data = new HashMap<>();
+        for (OrderStatus status : OrderStatus.values()) {
+            data.put(status.name(), orderRepository.countByRestaurantIdAndOrderStatus(restaurantId, status));
+        }
+        return data;
+    }
+
     private Long resolveRestaurantId(String adminEmail) {
         if (adminEmail == null || adminEmail.isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");

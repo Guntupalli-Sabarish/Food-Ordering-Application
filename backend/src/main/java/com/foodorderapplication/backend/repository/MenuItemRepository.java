@@ -11,7 +11,7 @@ public interface MenuItemRepository extends JpaRepository<MenuItem, Long> {
 	boolean existsByRestaurantRestaurantIdAndItemNameIgnoreCase(Long restaurantId, String itemName);
 	@Query("select m from MenuItem m "
 			+ "where m.restaurant.restaurantId = :restaurantId "
-			+ "and (:itemName is null or lower(m.itemName) like lower(concat('%', :itemName, '%'))) "
+			+ "and (cast(:itemName as string) is null or lower(m.itemName) like lower(concat('%', cast(:itemName as string), '%'))) "
 			+ "and (:available is null or m.availability = :available) "
 			+ "and (:minPrice is null or m.price >= :minPrice) "
 			+ "and (:maxPrice is null or m.price <= :maxPrice)")

@@ -23,12 +23,20 @@ public class OpenApiConfig {
                                 .name("Support")
                                 .email("support@foodordering.com")))
                 .components(new Components()
-                        .addSecuritySchemes("bearerAuth",
+                        .addSecuritySchemes("cookieAuth",
                                 new SecurityScheme()
-                                        .type(SecurityScheme.Type.HTTP)
-                                        .scheme("bearer")
-                                        .bearerFormat("JWT")
-                                        .description("JWT token for authentication")))
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+                                        .type(SecurityScheme.Type.APIKEY)
+                                        .in(SecurityScheme.In.COOKIE)
+                                        .name("token")
+                                        .description("Secure HttpOnly cookie containing JWT authentication token"))
+                        .addSecuritySchemes("csrfToken",
+                                new SecurityScheme()
+                                        .type(SecurityScheme.Type.APIKEY)
+                                        .in(SecurityScheme.In.HEADER)
+                                        .name("X-XSRF-TOKEN")
+                                        .description("CSRF validation header double-submitted with client state-changing requests")))
+                .addSecurityItem(new SecurityRequirement()
+                        .addList("cookieAuth")
+                        .addList("csrfToken"));
     }
 }
