@@ -9,3 +9,10 @@ dist/
 target/
 *.log
 .vscode/
+
+# Build artifact files — never commit these
+classpath.txt
+cp.txt
+
+# Local debug/tool scripts — never commit these
+backend/src/test/java/**/tool/
