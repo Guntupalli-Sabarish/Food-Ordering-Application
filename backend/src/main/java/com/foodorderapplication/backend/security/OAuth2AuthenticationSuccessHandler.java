@@ -74,8 +74,14 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         );
         String tempCode = oauthCodeStore.generateCode(authResponse);
 
-        String redirectUrl = frontendLoginUrl 
-            + "?code=" + encode(tempCode)
+        String baseUrl = frontendLoginUrl.endsWith("/login")
+            ? frontendLoginUrl.substring(0, frontendLoginUrl.length() - 6)
+            : frontendLoginUrl;
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        String redirectUrl = baseUrl
+            + "/?code=" + encode(tempCode)
             + "&isNew=" + isNewUser;
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
