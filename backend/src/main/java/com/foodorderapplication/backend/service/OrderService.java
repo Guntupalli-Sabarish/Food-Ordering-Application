@@ -69,12 +69,22 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
         }
         
-        validateCartItems(cartItems);
+        // Batch fetch all MenuItems in a single query to avoid N+1 RTT delays
+        List<Long> menuItemIds = cartItems.stream().map(CartItem::getMenuItemId).toList();
+        List<MenuItem> menuItems = menuItemRepository.findAllById(menuItemIds);
+        Map<Long, MenuItem> menuItemMap = new java.util.HashMap<>();
+        for (MenuItem mi : menuItems) {
+            menuItemMap.put(mi.getMenuItemId(), mi);
+        }
+
+        validateCartItems(cartItems, menuItemMap);
 
         BigDecimal subtotal = BigDecimal.ZERO;
         for (CartItem ci : cartItems) {
-            MenuItem mi = menuItemRepository.findById(ci.getMenuItemId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
+            MenuItem mi = menuItemMap.get(ci.getMenuItemId());
+            if (mi == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found");
+            }
             BigDecimal line = mi.getPrice().multiply(BigDecimal.valueOf(ci.getQuantity()));
             subtotal = subtotal.add(line);
         }
@@ -91,17 +101,16 @@ public class OrderService {
         return quote;
     }
 
-    private void validateCartItems(List<CartItem> cartItems) {
+    private void validateCartItems(List<CartItem> cartItems, Map<Long, MenuItem> menuItemMap) {
         boolean cartCleaned = false;
         List<CartItem> toRemove = new ArrayList<>();
         for (CartItem ci : cartItems) {
-            Optional<MenuItem> miOpt = menuItemRepository.findById(ci.getMenuItemId());
-            if (miOpt.isEmpty()) {
+            MenuItem mi = menuItemMap.get(ci.getMenuItemId());
+            if (mi == null) {
                 toRemove.add(ci);
                 cartCleaned = true;
                 continue;
             }
-            MenuItem mi = miOpt.get();
             if (!mi.isAvailability() || !mi.getRestaurant().isActive()) {
                 toRemove.add(ci);
                 cartCleaned = true;
@@ -158,15 +167,25 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
         }
 
-        validateCartItems(cartItems);
+        // Load all MenuItems in a single query to avoid N+1 RTT delays
+        List<Long> menuItemIds = cartItems.stream().map(CartItem::getMenuItemId).toList();
+        List<MenuItem> menuItems = menuItemRepository.findAllById(menuItemIds);
+        Map<Long, MenuItem> menuItemMap = new java.util.HashMap<>();
+        for (MenuItem mi : menuItems) {
+            menuItemMap.put(mi.getMenuItemId(), mi);
+        }
+
+        validateCartItems(cartItems, menuItemMap);
 
         // Ensure all items from same restaurant
         Long restaurantId = null;
         BigDecimal subtotal = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
         for (CartItem ci : cartItems) {
-            MenuItem mi = menuItemRepository.findById(ci.getMenuItemId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found"));
+            MenuItem mi = menuItemMap.get(ci.getMenuItemId());
+            if (mi == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Menu item not found");
+            }
             Long rId = mi.getRestaurant().getRestaurantId();
             if (restaurantId == null) {
                 restaurantId = rId;

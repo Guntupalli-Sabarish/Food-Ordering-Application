@@ -47,115 +47,115 @@ export const MenuPage = () => {
   }
 
   return (
-    <div className="space-y-0 animate-fade-in">
-      {/* Back button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to restaurants
-      </button>
+    <>
+      <div className="space-y-0 animate-fade-in">
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-4 flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to restaurants
+        </button>
 
-      {/* Restaurant hero */}
-      {restaurant && (
-        <div className="relative overflow-hidden rounded-3xl mb-6">
-          {/* Banner image */}
-          <div className="h-52 w-full overflow-hidden rounded-3xl bg-muted">
-            <img
-              src={restaurant.image}
-              alt={restaurant.name}
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent rounded-3xl" />
-          </div>
+        {/* Restaurant hero */}
+        {restaurant && (
+          <div className="relative overflow-hidden rounded-3xl mb-6">
+            {/* Banner image */}
+            <div className="h-52 w-full overflow-hidden rounded-3xl bg-muted">
+              <img
+                src={restaurant.image}
+                alt={restaurant.name}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent rounded-3xl" />
+            </div>
 
-          {/* Info overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-            <h1 className="text-2xl font-bold leading-tight">{restaurant.name}</h1>
-            <p className="text-sm text-white/75 mt-0.5">
-              {restaurant.cuisine} · {restaurant.priceLevel}
-            </p>
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-white/80">
-              <span className="flex items-center gap-1">
-                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                {restaurant.rating} rating
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {restaurant.etaMinutes} min
-              </span>
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                1.2 km away
-              </span>
+            {/* Info overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+              <h1 className="text-2xl font-bold leading-tight">{restaurant.name}</h1>
+              <p className="text-sm text-white/75 mt-0.5">
+                {restaurant.cuisine} · {restaurant.priceLevel}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-white/80">
+                <span className="flex items-center gap-1">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  {restaurant.rating} rating
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  {restaurant.etaMinutes} min
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  1.2 km away
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-
-
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Category sidebar – desktop */}
-        {categories.length > 1 && (
-          <nav className="hidden md:flex flex-col gap-1 w-44 shrink-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-2">Menu</p>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left ${
-                  (activeCategory ?? categories[0]) === cat
-                    ? "bg-brand-500/10 text-brand-600 dark:text-brand-400"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
-              >
-                <span>{cat}</span>
-                <ChevronRight className="h-3.5 w-3.5 opacity-50" />
-              </button>
-            ))}
-          </nav>
         )}
 
-        {/* Category tabs – mobile */}
-        {categories.length > 1 && (
-          <div className="flex md:hidden gap-2 overflow-x-auto pb-1 mb-4 -mx-4 px-4">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold border transition-all ${
-                  (activeCategory ?? categories[0]) === cat
-                    ? "bg-brand-500 text-white border-brand-500"
-                    : "bg-card text-muted-foreground border-border"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Category sidebar – desktop */}
+          {categories.length > 1 && (
+            <nav className="hidden md:flex flex-col gap-1 w-44 shrink-0">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-2">Menu</p>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left ${
+                    (activeCategory ?? categories[0]) === cat
+                      ? "bg-brand-500/10 text-brand-600 dark:text-brand-400"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  <span>{cat}</span>
+                  <ChevronRight className="h-3.5 w-3.5 opacity-50" />
+                </button>
+              ))}
+            </nav>
+          )}
 
-        {/* Menu items */}
-        <div className="flex-1 space-y-3 min-w-0">
-          {displayItems.length > 0 ? (
-            displayItems.map((item) => (
-              <MenuItemCard key={item.id} item={item} onAdd={addItem} />
-            ))
-          ) : (
-            <div className="flex flex-col items-center py-16 text-center">
-              <div className="text-4xl mb-3">🍽️</div>
-              <p className="font-semibold text-foreground">No items found</p>
-              <p className="text-sm text-muted-foreground">This category has no items available</p>
+          {/* Category tabs – mobile */}
+          {categories.length > 1 && (
+            <div className="flex md:hidden gap-2 overflow-x-auto pb-1 mb-4 -mx-4 px-4">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold border transition-all ${
+                    (activeCategory ?? categories[0]) === cat
+                      ? "bg-brand-500 text-white border-brand-500"
+                      : "bg-card text-muted-foreground border-border"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
           )}
+
+          {/* Menu items */}
+          <div className="flex-1 space-y-3 min-w-0">
+            {displayItems.length > 0 ? (
+              displayItems.map((item) => (
+                <MenuItemCard key={item.id} item={item} onAdd={addItem} />
+              ))
+            ) : (
+              <div className="flex flex-col items-center py-16 text-center">
+                <div className="text-4xl mb-3">🍽️</div>
+                <p className="font-semibold text-foreground">No items found</p>
+                <p className="text-sm text-muted-foreground">This category has no items available</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Floating cart bar */}
       {cartItems.length > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-50 md:bottom-6 px-4">
+        <div className="fixed bottom-20 left-0 right-0 z-50 md:bottom-6 px-4 animate-fade-in">
           <button
             onClick={() => navigate("/cart")}
             className="mx-auto flex max-w-lg w-full items-center justify-between rounded-2xl btn-brand-gradient px-5 py-3.5 text-white shadow-2xl"
@@ -168,6 +168,6 @@ export const MenuPage = () => {
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 };

@@ -144,7 +144,8 @@ export const CheckoutPage = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-32 lg:pb-8 animate-fade-in">
+    <>
+      <div className="max-w-5xl mx-auto space-y-6 pb-32 lg:pb-8 animate-fade-in">
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
@@ -328,22 +329,28 @@ export const CheckoutPage = () => {
       </div>
 
       {/* Mobile Sticky Checkout Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-background/90 backdrop-blur-md border-t border-border lg:hidden shadow-[0_-4px_24px_rgba(0,0,0,0.05)]">
-        <div className="max-w-lg mx-auto">
-          <Button
-            className="w-full rounded-xl btn-brand-gradient border-0 text-white font-bold h-14 text-[17px] shadow-lg shadow-brand-500/25"
-            onClick={handlePlaceOrder}
-            disabled={submitting || loadingQuote || quoteError}
-          >
-            {submitting ? (
-              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...</>
-            ) : (
-              `Place Order • ${formatCurrency(quote.total)}`
-            )}
-          </Button>
+      {quote && (
+        <div className="fixed bottom-20 md:bottom-6 left-0 right-0 z-50 px-4 lg:hidden animate-fade-in">
+          <div className="mx-auto flex max-w-lg w-full items-center justify-between rounded-2xl glass-card p-4 shadow-2xl">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground font-semibold uppercase">Total Pay</span>
+              <span className="text-lg font-black text-foreground leading-none mt-1">{formatCurrency(quote.total)}</span>
+            </div>
+            <Button
+              className="rounded-xl btn-brand-gradient border-0 text-white font-bold h-12 px-6 text-sm shadow-md"
+              onClick={handlePlaceOrder}
+              disabled={submitting || loadingQuote || quoteError}
+            >
+              {submitting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+              ) : (
+                "Place Order"
+              )}
+            </Button>
+          </div>
         </div>
+      )}
       </div>
-
-    </div>
+    </>
   );
 };
