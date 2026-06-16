@@ -1,3 +1,8 @@
+-- Sync database autoincrement sequences to prevent duplicate key errors
+SELECT setval(pg_get_serial_sequence('users', 'user_id'), COALESCE(max(user_id), 1)) FROM users;
+SELECT setval(pg_get_serial_sequence('restaurants', 'restaurant_id'), COALESCE(max(restaurant_id), 1)) FROM restaurants;
+SELECT setval(pg_get_serial_sequence('menu_items', 'menu_item_id'), COALESCE(max(menu_item_id), 1)) FROM menu_items;
+
 -- 1. Seed admin user if not exists
 INSERT INTO users (name, email, password, role, email_verified, created_at, token_version)
 SELECT 'Hyderabad Admin', 'admin@foodflow.com', '$2a$10$N9qo8uLOqp.9xsx7nQD7Oe.wZ7x.xPq8e5j0XjZ3nZ0PqE4v3eZfG', 'ADMIN', TRUE, CURRENT_TIMESTAMP, 0

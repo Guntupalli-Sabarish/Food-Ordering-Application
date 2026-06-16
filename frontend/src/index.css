@@ -84,7 +84,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased transition-colors duration-300;
     font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
@@ -214,4 +214,13 @@
   .status-out_for_delivery { @apply bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300; }
   .status-delivered { @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
   .status-cancelled { @apply bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300; }
+
+  /* Bounce animation for button click feedback */
+  @keyframes scaleBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.9); }
+  }
+  .animate-scale-bounce {
+    animation: scaleBounce 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
 }

@@ -2,22 +2,38 @@ import { useState } from "react";
 import { Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { MenuItem } from "@/types";
+import { useCart } from "@/hooks/useCart";
 
 interface MenuItemCardProps {
   item: MenuItem;
-  onAdd: (item: MenuItem) => void;
+  onAdd?: (item: MenuItem) => void;
 }
 
 export const MenuItemCard = ({ item, onAdd }: MenuItemCardProps) => {
-  const [count, setCount] = useState(0);
+  const { cartItems, addItem, updateQuantity } = useCart();
+  const [isBouncing, setIsBouncing] = useState(false);
+
+  const cartItem = cartItems.find((ci) => ci.item.id === item.id);
+  const count = cartItem ? cartItem.quantity : 0;
 
   const handleAdd = () => {
-    setCount((c) => c + 1);
-    onAdd(item);
+    setIsBouncing(true);
+    setTimeout(() => setIsBouncing(false), 300);
+    if (onAdd) {
+      onAdd(item);
+    } else {
+      addItem(item);
+    }
   };
 
   const handleMinus = () => {
-    if (count > 0) setCount((c) => c - 1);
+    if (count > 0) {
+      updateQuantity(item.id, count - 1);
+    }
+  };
+
+  const handlePlus = () => {
+    addItem(item);
   };
 
   return (
@@ -62,7 +78,9 @@ export const MenuItemCard = ({ item, onAdd }: MenuItemCardProps) => {
             <Button
               size="sm"
               onClick={handleAdd}
-              className="h-8 px-4 text-xs rounded-full btn-brand-gradient text-white border-0"
+              className={`h-8 px-4 text-xs rounded-full btn-brand-gradient text-white border-0 transition-transform ${
+                isBouncing ? "animate-scale-bounce" : ""
+              }`}
             >
               <Plus className="mr-1 h-3 w-3" />
               Add
@@ -83,7 +101,7 @@ export const MenuItemCard = ({ item, onAdd }: MenuItemCardProps) => {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={handleAdd}
+                onClick={handlePlus}
                 className="h-7 w-7 rounded-full text-white hover:bg-white/10 hover:text-white"
               >
                 <Plus className="h-3 w-3" />

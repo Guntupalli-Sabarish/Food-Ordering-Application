@@ -1,20 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, Trash2, ArrowRight, Tag, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/hooks/useCart";
 import { formatCurrency } from "@/utils/format";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { getRestaurantById } from "@/apis";
-import type { Restaurant } from "@/types";
+import { getRestaurantById, getMenuForRestaurant } from "@/apis";
+import type { Restaurant, MenuItem } from "@/types";
 
 export const CartPage = () => {
   usePageTitle("Cart");
   const navigate = useNavigate();
-  const { cartItems, totalAmount, removeItem, updateQuantity } = useCart();
+  const { cartItems, totalAmount, removeItem, updateQuantity, addItem } = useCart();
   
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loadingRestaurant, setLoadingRestaurant] = useState(false);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loadingMenu, setLoadingMenu] = useState(false);
 
   useEffect(() => {
     if (cartItems.length > 0) {
@@ -29,7 +31,25 @@ export const CartPage = () => {
     }
   }, [cartItems]);
 
-  const deliveryFee = 40;
+  useEffect(() => {
+    if (restaurant) {
+      setLoadingMenu(true);
+      getMenuForRestaurant(restaurant.id)
+        .then(setMenuItems)
+        .catch(console.error)
+        .finally(() => setLoadingMenu(false));
+    } else {
+      setMenuItems([]);
+    }
+  }, [restaurant]);
+
+  const recommendations = useMemo(() => {
+    const inCartIds = new Set(cartItems.map((ci) => ci.item.id));
+    return menuItems.filter((item) => !inCartIds.has(item.id) && item.price < 200);
+  }, [menuItems, cartItems]);
+
+  const isFreeDelivery = restaurant?.freeDelivery || totalAmount >= 299;
+  const deliveryFee = isFreeDelivery ? 0 : 40;
   const taxes = Math.round(totalAmount * 0.08);
   const total = totalAmount + deliveryFee + taxes;
 
@@ -102,6 +122,41 @@ export const CartPage = () => {
               </div>
             ) : null}
 
+            {/* Free Delivery Progress Bar */}
+            {restaurant && (
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-sm relative overflow-hidden">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                    <span className="text-xl">🚚</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      {isFreeDelivery 
+                        ? "🎉 You qualify for FREE delivery!" 
+                        : `Add ${formatCurrency(299 - totalAmount)} more for FREE delivery!`
+                      }
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isFreeDelivery 
+                        ? "Your order qualifies for free delivery from this restaurant." 
+                        : `Get free delivery when you spend ₹299 or more.`
+                      }
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Progress track */}
+                <div className="relative w-full h-2.5 bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ease-out ${
+                      isFreeDelivery ? "bg-emerald-500" : "btn-brand-gradient"
+                    }`}
+                    style={{ width: `${Math.min((totalAmount / 299) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Cart items */}
             <div className="space-y-4">
               {cartItems.map((cart) => (
@@ -170,6 +225,72 @@ export const CartPage = () => {
                 </div>
               ))}
             </div>
+
+            {/* Recommended Add-ons Carousel */}
+            {recommendations.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground px-1">
+                  Complete your meal
+                </h3>
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-1 px-1">
+                  {recommendations.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-col bg-card border border-border rounded-2xl p-3 shadow-sm w-44 shrink-0 hover:border-brand-500/20 transition-all group relative"
+                    >
+                      {/* Image Thumbnail */}
+                      <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-muted mb-2 relative">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xl">🍽️</div>
+                        )}
+                        {/* Veg / Non-Veg Indicator Overlay */}
+                        <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-sm p-1 rounded-md">
+                          {item.isVeg ? (
+                            <span className="flex h-3 w-3 items-center justify-center rounded border border-emerald-500 shrink-0 bg-white">
+                              <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full" />
+                            </span>
+                          ) : (
+                            <span className="flex h-3 w-3 items-center justify-center rounded border border-rose-500 shrink-0 bg-white">
+                              <span className="h-1.5 w-1.5 bg-rose-500 rounded-full" />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 flex flex-col justify-between min-w-0">
+                        <div>
+                          <p className="font-semibold text-xs text-foreground line-clamp-1 group-hover:text-brand-500 transition-colors">
+                            {item.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                            {item.category}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs font-bold text-foreground">
+                            {formatCurrency(item.price)}
+                          </span>
+                          <Button
+                            size="sm"
+                            onClick={() => addItem(item)}
+                            className="h-7 px-3 text-[10px] font-bold rounded-full btn-brand-gradient text-white border-0 hover:scale-105 transition-transform"
+                          >
+                            + Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Promo code */}
             <div className="flex items-center gap-3 rounded-2xl border border-dashed border-brand-500/30 bg-brand-500/5 p-4">

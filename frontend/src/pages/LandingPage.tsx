@@ -81,6 +81,13 @@ const TESTIMONIALS = [
   { name: "Priya Sharma", role: "Food Blogger",       rating: 5, text: "FoodFlow completely changed how I order food. The delivery is incredibly fast and the restaurant selection is unmatched!",  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya"  },
   { name: "Rahul Mehta",  role: "Software Engineer",  rating: 5, text: "I order lunch through FoodFlow every day at work. The tracking feature is brilliant and food always arrives hot!",           avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul"  },
   { name: "Anjali Gupta", role: "Marketing Manager",  rating: 5, text: "Love the variety! From biryani to pizza, every cuisine is covered. The payment system is super secure too.",               avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali" },
+  { name: "Vikram Malhotra", role: "Fitness Coach",   rating: 5, text: "The healthy category has saved my diet plan! Fast delivery and great macro-friendly options.",                            avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram" },
+  { name: "Sneha Reddy", role: "Doctor",              rating: 5, text: "Ordering hospital dinners is super simple. The food always arrives piping hot and fresh even late at night.",              avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sneha" },
+  { name: "Karan Johar", role: "College Student",     rating: 5, text: "Pocket-friendly prices, amazing discounts, and lightning fast delivery for late night study sessions!",                    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Karan" },
+  { name: "Meera Nair", role: "UI Designer",          rating: 5, text: "The cleanest UI and user experience I have ever seen. Ordering food has never been this smooth and aesthetically pleasing.",avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Meera" },
+  { name: "Aditya Verma", role: "Business Owner",     rating: 5, text: "Bulk ordering for office events is effortless. The support team is also incredibly helpful.",                             avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Aditya" },
+  { name: "Deepika Sen", role: "Homemaker",           rating: 5, text: "Whenever I don't feel like cooking, FoodFlow has my back. Extremely reliable delivery and great selection.",             avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Deepika" },
+  { name: "Suresh Kumar", role: "Bank Manager",       rating: 5, text: "Highly secure payment gateway and the order tracking is spot on. Very professional service.",                             avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Suresh" }
 ];
 
 const HERO_IMAGES = [
@@ -133,7 +140,7 @@ export const LandingPage = () => {
 
   // Hero slideshow
   useEffect(() => {
-    const t = setInterval(() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length), 5000);
+    const t = setInterval(() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length), 2500);
     return () => clearInterval(t);
   }, []);
 
@@ -224,7 +231,30 @@ export const LandingPage = () => {
           from { transform: scale(1.07); }
           to   { transform: scale(1);   }
         }
-        .lp-zoom { animation: lp-hero-zoom 9s ease-out both; }
+        .lp-zoom { animation: lp-hero-zoom 4.5s ease-out both; }
+
+        /* Testimonials scrolling marquee moving from Left to Right (LTR) */
+        @keyframes lp-marquee-ltr {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0%); }
+        }
+        .lp-marquee-container {
+          overflow: hidden;
+          width: 100%;
+          display: flex;
+          position: relative;
+          mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+          -webkit-mask-image: linear-gradient(to right, transparent, white 10%, white 90%, transparent);
+        }
+        .lp-marquee-inner {
+          display: flex;
+          gap: 24px;
+          width: max-content;
+          animation: lp-marquee-ltr 35s linear infinite;
+        }
+        .lp-marquee-inner:hover {
+          animation-play-state: paused;
+        }
         .lp-nav-link { text-decoration:none; font-weight:600; font-size:15px; transition:color .2s; }
         .lp-card-hover { transition: transform .25s, box-shadow .25s; }
         .lp-card-hover:hover { transform: translateY(-6px); box-shadow: 0 20px 48px rgba(0,0,0,0.18) !important; }
@@ -812,35 +842,66 @@ export const LandingPage = () => {
         {/* ══════════════════════════════════════════
             TESTIMONIALS
         ══════════════════════════════════════════ */}
-        <section style={{ padding: "100px 24px", background: surfaceAlt }}>
-          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <section style={{ padding: "100px 0", background: surfaceAlt, overflow: "hidden" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
             <div style={{ textAlign: "center", marginBottom: 60 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: "#f97316", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>TESTIMONIALS</p>
               <h2 style={{ fontSize: "clamp(1.8rem,4vw,2.8rem)", fontWeight: 800, letterSpacing: -1 }}>What our customers say</h2>
             </div>
+          </div>
 
-            <div className="lp-grid-testimonials" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
-              {TESTIMONIALS.map(t => (
-                <div key={t.name} style={{
+          <div className="lp-marquee-container">
+            <div className="lp-marquee-inner">
+              {/* Render testimonials */}
+              {TESTIMONIALS.map((t, index) => (
+                <div key={`${t.name}-${index}`} style={{
                   padding: 32, borderRadius: 20, background: cardBg,
                   boxShadow: dk ? "0 2px 12px rgba(0,0,0,.3)" : "0 4px 24px rgba(0,0,0,.07)",
+                  width: 340, shrink: 0, flexShrink: 0,
                 }}>
                   <div style={{ display: "flex", gap: 3, marginBottom: 18 }}>
                     {Array.from({ length: t.rating }).map((_, i) => (
                       <Star key={i} size={17} fill="#f97316" color="#f97316" />
                     ))}
                   </div>
-                  <p style={{ color: dk ? "#cbd5e1" : "#374151", fontSize: 15, lineHeight: 1.7, marginBottom: 24, fontStyle: "italic" }}>
+                  <p style={{ color: dk ? "#cbd5e1" : "#374151", fontSize: 14, lineHeight: 1.6, marginBottom: 24, fontStyle: "italic", height: 72, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
                     "{t.text}"
                   </p>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <img src={t.avatar} alt={t.name} style={{
-                      width: 46, height: 46, borderRadius: "50%",
+                      width: 42, height: 42, borderRadius: "50%",
                       border: "2px solid #f97316", background: "#fed7aa",
                     }} />
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: 15, color: text }}>{t.name}</div>
-                      <div style={{ color: muted, fontSize: 13 }}>{t.role}</div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: text }}>{t.name}</div>
+                      <div style={{ color: muted, fontSize: 12 }}>{t.role}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {/* Duplicate array to make scrolling seamless */}
+              {TESTIMONIALS.map((t, index) => (
+                <div key={`${t.name}-${index}-dup`} style={{
+                  padding: 32, borderRadius: 20, background: cardBg,
+                  boxShadow: dk ? "0 2px 12px rgba(0,0,0,.3)" : "0 4px 24px rgba(0,0,0,.07)",
+                  width: 340, shrink: 0, flexShrink: 0,
+                }}>
+                  <div style={{ display: "flex", gap: 3, marginBottom: 18 }}>
+                    {Array.from({ length: t.rating }).map((_, i) => (
+                      <Star key={i} size={17} fill="#f97316" color="#f97316" />
+                    ))}
+                  </div>
+                  <p style={{ color: dk ? "#cbd5e1" : "#374151", fontSize: 14, lineHeight: 1.6, marginBottom: 24, fontStyle: "italic", height: 72, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                    "{t.text}"
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <img src={t.avatar} alt={t.name} style={{
+                      width: 42, height: 42, borderRadius: "50%",
+                      border: "2px solid #f97316", background: "#fed7aa",
+                    }} />
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: text }}>{t.name}</div>
+                      <div style={{ color: muted, fontSize: 12 }}>{t.role}</div>
                     </div>
                   </div>
                 </div>

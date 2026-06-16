@@ -19,6 +19,10 @@ export interface Restaurant {
   tags: string[];
   adminId?: number;
   active?: boolean;
+  topRatedItem?: { name: string; price: number };
+  minItem?: { name: string; price: number };
+  maxItem?: { name: string; price: number };
+  freeDelivery?: boolean;
 }
 
 export interface MenuItem {

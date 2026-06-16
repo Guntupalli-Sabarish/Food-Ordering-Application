@@ -93,6 +93,7 @@ type OrderDTO = {
   createdAt: string;
   items: OrderItemDTO[];
   restaurantName?: string;
+  deliveryAddress?: string;
 };
 
 type PaymentDTO = {
@@ -252,19 +253,212 @@ const toBackendOrderStatus = (status: string) => {
   return status;
 };
 
-const mapRestaurant = (dto: RestaurantDTO): Restaurant => ({
-  id: String(dto.restaurantId ?? ""),
-  name: dto.name ?? "Restaurant",
-  address: dto.address ?? "",
-  cuisine: dto.cuisine ?? "",
-  rating: 4.5,
-  etaMinutes: 30,
-  priceLevel: "$$",
-  image: getRestaurantImage(String(dto.restaurantId ?? ""), dto.name ?? "", dto.cuisine ?? ""),
-  tags: dto.active ? ["Open"] : ["Closed"],
-  adminId: dto.adminId,
-  active: dto.active,
-});
+const getRestaurantMeta = (name: string) => {
+  const normalized = name.toLowerCase();
+  
+  // Default values
+  let rating = 4.3;
+  let etaMinutes = 30;
+  let priceLevel = "₹₹";
+  let topRatedItem = { name: "Specialty Dish", price: 350 };
+  let minItem = { name: "Starter", price: 150 };
+  let maxItem = { name: "Platter", price: 550 };
+  let freeDelivery = false;
+  
+  if (normalized.includes("peshawri") || normalized.includes("kohenur")) {
+    rating = 4.9;
+    etaMinutes = 45;
+    priceLevel = "₹₹₹";
+    topRatedItem = { name: "Murgh Malai Kebab", price: 1599 };
+    minItem = { name: "Dal Bukhara", price: 799 };
+    maxItem = { name: "Sikandari Raan", price: 3299 };
+    freeDelivery = false;
+  } else if (normalized.includes("niloufer")) {
+    rating = 4.8;
+    etaMinutes = 20;
+    priceLevel = "₹";
+    topRatedItem = { name: "Bun Maska with Zafrani Chai", price: 220 };
+    minItem = { name: "Osmania Biscuits (10 pcs)", price: 150 };
+    maxItem = { name: "Niloufer Special Tea Flask", price: 350 };
+    freeDelivery = true;
+  } else if (normalized.includes("bawarchi")) {
+    rating = 4.7;
+    etaMinutes = 25;
+    priceLevel = "₹";
+    topRatedItem = { name: "Chicken Dum Biryani", price: 310 };
+    minItem = { name: "Double Ka Meetha", price: 99 };
+    maxItem = { name: "Chicken Dum Biryani", price: 310 };
+    freeDelivery = true;
+  } else if (normalized.includes("concu")) {
+    rating = 4.6;
+    etaMinutes = 35;
+    priceLevel = "₹₹₹";
+    topRatedItem = { name: "Chocolate Hazelnut Tart", price: 199 };
+    minItem = { name: "Red Velvet Cupcake", price: 129 };
+    maxItem = { name: "Chocolate Hazelnut Tart", price: 199 };
+    freeDelivery = true;
+  } else if (normalized.includes("chutneys")) {
+    rating = 4.4;
+    etaMinutes = 20;
+    priceLevel = "₹";
+    topRatedItem = { name: "Steam Dosa", price: 120 };
+    minItem = { name: "Filter Coffee", price: 49 };
+    maxItem = { name: "Steam Dosa", price: 120 };
+    freeDelivery = false;
+  } else if (normalized.includes("shadab")) {
+    rating = 4.6;
+    etaMinutes = 30;
+    priceLevel = "₹";
+    topRatedItem = { name: "Shadab Special Mutton Biryani", price: 390 };
+    minItem = { name: "Double Roti", price: 80 };
+    maxItem = { name: "Shadab Special Mutton Biryani", price: 390 };
+    freeDelivery = true;
+  } else if (normalized.includes("grand hotel")) {
+    rating = 4.3;
+    etaMinutes = 25;
+    priceLevel = "₹";
+    topRatedItem = { name: "Mutton Biryani Single", price: 240 };
+    minItem = { name: "Irani Chai", price: 30 };
+    maxItem = { name: "Grand Special Mix Grill", price: 580 };
+    freeDelivery = true;
+  } else if (normalized.includes("bahar")) {
+    rating = 4.5;
+    etaMinutes = 25;
+    priceLevel = "₹";
+    topRatedItem = { name: "Special Mutton Biryani", price: 320 };
+    minItem = { name: "Irani Chai", price: 30 };
+    maxItem = { name: "Mutton Boti Kebab", price: 420 };
+    freeDelivery = true;
+  } else if (normalized.includes("shah ghouse")) {
+    rating = 4.5;
+    etaMinutes = 30;
+    priceLevel = "₹";
+    topRatedItem = { name: "Special Chicken Biryani", price: 310 };
+    minItem = { name: "Irani Chai", price: 25 };
+    maxItem = { name: "Mutton Haleem (Full)", price: 450 };
+    freeDelivery = true;
+  } else if (normalized.includes("exotica")) {
+    rating = 4.6;
+    etaMinutes = 40;
+    priceLevel = "₹₹₹";
+    topRatedItem = { name: "Murgh Malai Kebab", price: 490 };
+    minItem = { name: "Tandoori Roti", price: 70 };
+    maxItem = { name: "Jhinga Nisha", price: 950 };
+    freeDelivery = false;
+  } else if (normalized.includes("sky kitchen") || normalized.includes("so the sky")) {
+    rating = 4.5;
+    etaMinutes = 40;
+    priceLevel = "₹₹₹";
+    topRatedItem = { name: "Rooftop Veg Kebab Platter", price: 650 };
+    minItem = { name: "Virgin Mojito", price: 250 };
+    maxItem = { name: "Pan Seared Salmon", price: 1250 };
+    freeDelivery = false;
+  } else if (normalized.includes("one8") || normalized.includes("commune")) {
+    rating = 4.7;
+    etaMinutes = 35;
+    priceLevel = "₹₹₹";
+    topRatedItem = { name: "Virat's Favorite Quinoa Salad", price: 595 };
+    minItem = { name: "Mushroom Galouti", price: 495 };
+    maxItem = { name: "One8 Commune Super Bowl", price: 895 };
+    freeDelivery = false;
+  } else if (normalized.includes("antera")) {
+    rating = 4.6;
+    etaMinutes = 35;
+    priceLevel = "₹₹₹";
+    topRatedItem = { name: "AnTeRa Special Pulao", price: 450 };
+    minItem = { name: "Guntar Idli", price: 180 };
+    maxItem = { name: "AnTeRa Mutton Roast Platter", price: 890 };
+    freeDelivery = false;
+  } else if (normalized.includes("stories") || normalized.includes("burger")) {
+    rating = 4.1;
+    etaMinutes = 20;
+    priceLevel = "₹";
+    topRatedItem = { name: "Crispy Chicken Burger", price: 179 };
+    minItem = { name: "Peri Peri French Fries", price: 99 };
+    maxItem = { name: "Crispy Chicken Burger", price: 179 };
+    freeDelivery = true;
+  } else if (normalized.includes("salad")) {
+    rating = 4.3;
+    etaMinutes = 30;
+    priceLevel = "₹₹";
+    topRatedItem = { name: "Quinoa Salad Bowl", price: 299 };
+    minItem = { name: "Green Detox Smoothie", price: 149 };
+    maxItem = { name: "Quinoa Salad Bowl", price: 299 };
+    freeDelivery = false;
+  } else if (normalized.includes("lino")) {
+    rating = 4.2;
+    etaMinutes = 25;
+    priceLevel = "₹₹";
+    topRatedItem = { name: "Paneer Tikka Pizza", price: 349 };
+    minItem = { name: "Garlic Bread with Cheese", price: 149 };
+    maxItem = { name: "Paneer Tikka Pizza", price: 349 };
+    freeDelivery = false;
+  } else if (normalized.includes("durbar")) {
+    rating = 4.4;
+    etaMinutes = 30;
+    priceLevel = "₹₹";
+    topRatedItem = { name: "Nellore Chepala Pulusu", price: 490 };
+    minItem = { name: "Steamed Rice", price: 110 };
+    maxItem = { name: "Durbar Special Mutton Thali", price: 650 };
+    freeDelivery = false;
+  } else if (normalized.includes("chubby") || normalized.includes("cho")) {
+    rating = 4.5;
+    etaMinutes = 35;
+    priceLevel = "₹₹";
+    topRatedItem = { name: "Chubby Cho Special Sushi Roll", price: 480 };
+    minItem = { name: "Veg Spring Roll", price: 220 };
+    maxItem = { name: "Pan Asian Seafood Platter", price: 790 };
+    freeDelivery = false;
+  } else if (normalized.includes("parampara")) {
+    rating = 4.4;
+    etaMinutes = 30;
+    priceLevel = "₹₹";
+    topRatedItem = { name: "Special Paneer Butter Masala", price: 340 };
+    minItem = { name: "Tandoori Roti", price: 50 };
+    maxItem = { name: "Parampara Special Veg Thali", price: 490 };
+    freeDelivery = false;
+  } else if (normalized.includes("ishtaa")) {
+    rating = 4.5;
+    etaMinutes = 25;
+    priceLevel = "₹₹";
+    topRatedItem = { name: "Ghee Podi Idli", price: 120 };
+    minItem = { name: "Filter Coffee", price: 60 };
+    maxItem = { name: "Ishtaa Special Thali", price: 350 };
+    freeDelivery = false;
+  }
+  
+  return { rating, etaMinutes, priceLevel, topRatedItem, minItem, maxItem, freeDelivery };
+};
+
+const mapRestaurant = (dto: RestaurantDTO): Restaurant => {
+  const meta = getRestaurantMeta(dto.name ?? "");
+  return {
+    id: String(dto.restaurantId ?? ""),
+    name: dto.name ?? "Restaurant",
+    address: dto.address ?? "",
+    cuisine: dto.cuisine ?? "",
+    rating: meta.rating,
+    etaMinutes: meta.etaMinutes,
+    priceLevel: meta.priceLevel,
+    image: getRestaurantImage(String(dto.restaurantId ?? ""), dto.name ?? "", dto.cuisine ?? ""),
+    tags: dto.active ? ["Open"] : ["Closed"],
+    adminId: dto.adminId,
+    active: dto.active,
+    topRatedItem: meta.topRatedItem,
+    minItem: meta.minItem,
+    maxItem: meta.maxItem,
+    freeDelivery: meta.freeDelivery,
+  };
+};
+
+const isVegItem = (name: string): boolean => {
+  const normalized = name.toLowerCase();
+  const nonVegKeywords = [
+    "chicken", "mutton", "egg", "seafood", "fish", "prawn", "salmon", 
+    "meat", "kebab", "haleem", "wings", "grill", "shrimp", "beef", "pork"
+  ];
+  return !nonVegKeywords.some(keyword => normalized.includes(keyword));
+};
 
 const mapMenuItem = (dto: MenuItemDTO): MenuItem => ({
   id: String(dto.menuItemId ?? ""),
@@ -272,7 +466,7 @@ const mapMenuItem = (dto: MenuItemDTO): MenuItem => ({
   name: dto.itemName ?? "Item",
   description: dto.description ?? "",
   price: Number(dto.price ?? 0),
-  isVeg: false,
+  isVeg: isVegItem(dto.itemName ?? "Item"),
   category: dto.category ?? "Main",
   image: getMenuItemImage(String(dto.menuItemId ?? ""), dto.itemName ?? "", dto.category ?? ""),
   availability: dto.availability !== false,
@@ -295,7 +489,7 @@ const mapOrder = (dto: OrderDTO): Order => ({
       name: item.menuItemName || `Item #${item.menuItemId ?? ""}`,
       description: "",
       price: Number(item.unitPrice ?? 0),
-      isVeg: false,
+      isVeg: isVegItem(item.menuItemName || ""),
       category: "Main",
       image: DEFAULT_MENU_IMAGE,
       availability: true,
@@ -305,6 +499,7 @@ const mapOrder = (dto: OrderDTO): Order => ({
   total: Number(dto.totalAmount ?? 0),
   status: toOrderStatus(dto.orderStatus ?? "PENDING"),
   createdAt: dto.createdAt ?? new Date().toISOString(),
+  deliveryAddress: dto.deliveryAddress,
 });
 
 export const login = async (email: string, password: string) => {
@@ -406,7 +601,14 @@ export const updateProfile = async (payload: Partial<User>) => {
 
 export const getRestaurants = async () => {
   const page = await apiRequest<PageResponse<RestaurantDTO>>("/api/customer/restaurants?size=200&sort=name,asc");
-  return (page.content ?? []).map(mapRestaurant);
+  const mapped = (page.content ?? []).map(mapRestaurant);
+  const seen = new Set<string>();
+  return mapped.filter((r) => {
+    const key = r.name.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 export const getRestaurantById = async (id: string) => {
