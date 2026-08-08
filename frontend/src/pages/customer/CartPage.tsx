@@ -16,7 +16,7 @@ export const CartPage = () => {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loadingRestaurant, setLoadingRestaurant] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [, setLoadingMenu] = useState(false);
 
   useEffect(() => {
     if (cartItems.length > 0) {

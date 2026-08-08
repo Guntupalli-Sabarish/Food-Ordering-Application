@@ -857,7 +857,7 @@ export const LandingPage = () => {
                 <div key={`${t.name}-${index}`} style={{
                   padding: 32, borderRadius: 20, background: cardBg,
                   boxShadow: dk ? "0 2px 12px rgba(0,0,0,.3)" : "0 4px 24px rgba(0,0,0,.07)",
-                  width: 340, shrink: 0, flexShrink: 0,
+                  width: 340, flexShrink: 0,
                 }}>
                   <div style={{ display: "flex", gap: 3, marginBottom: 18 }}>
                     {Array.from({ length: t.rating }).map((_, i) => (
@@ -884,7 +884,7 @@ export const LandingPage = () => {
                 <div key={`${t.name}-${index}-dup`} style={{
                   padding: 32, borderRadius: 20, background: cardBg,
                   boxShadow: dk ? "0 2px 12px rgba(0,0,0,.3)" : "0 4px 24px rgba(0,0,0,.07)",
-                  width: 340, shrink: 0, flexShrink: 0,
+                  width: 340, flexShrink: 0,
                 }}>
                   <div style={{ display: "flex", gap: 3, marginBottom: 18 }}>
                     {Array.from({ length: t.rating }).map((_, i) => (
